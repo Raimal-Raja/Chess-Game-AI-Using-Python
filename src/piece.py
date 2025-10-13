@@ -1,9 +1,19 @@
+import os
 class Pieces:
     def __init__(self, name, color, value, texture, texture_rect = None):
-        
-        pass
+        self.name = name
+        self.color = color
     
-
+        value_sign = 1 if color == 'white' else -1
+        self.value = value * value_sign
+        self.texture = texture
+        self.set_texture()
+        self.texture_rect = texture_rect
+        
+        
+    def set_texture(self):
+        self.texture = os.path.join
+        
 class Pawn(Pieces):
     # def __init__(self, name, color, value, texture, texture_rect=None):
     #     super().__init__(name, color, value, texture, texture_rect)
