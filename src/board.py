@@ -3,6 +3,7 @@ from square import Square
 from piece import *
 from move import Move
 from sound import Sound
+from config import resource_path
 import copy
 import os
 
@@ -34,7 +35,7 @@ class Board:
                 self.squares[final.row][final.col].piece = piece
                 if not testing:
                     sound = Sound(
-                        os.path.join('assets/sounds/capture.wav'))
+                        resource_path('assets/sounds/capture.wav'))
                     sound.play()
             
             # pawn promotion

@@ -5,6 +5,7 @@ from board import Board
 from dragger import Dragger
 from config import Config
 from square import Square
+from config import resource_path
 
 class Game:
 
@@ -59,7 +60,7 @@ class Game:
                     # all pieces except dragger piece
                     if piece is not self.dragger.piece:
                         piece.set_texture(size=80)
-                        img = pygame.image.load(piece.texture)
+                        img = pygame.image.load(resource_path(piece.texture))
                         img_center = col * SQSIZE + SQSIZE // 2, row * SQSIZE + SQSIZE // 2
                         piece.texture_rect = img.get_rect(center=img_center)
                         surface.blit(img, piece.texture_rect)

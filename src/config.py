@@ -1,8 +1,19 @@
 import pygame
 import os
+import sys
 
 from sound import Sound
 from theme import Theme
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    
+    return os.path.join(base_path, relative_path)
 
 class Config:
 
@@ -13,9 +24,9 @@ class Config:
         self.theme = self.themes[self.idx]
         self.font = pygame.font.SysFont('monospace', 18, bold=True)
         self.move_sound = Sound(
-            os.path.join('assets/sounds/move.wav'))
+            resource_path('assets/sounds/move.wav'))
         self.capture_sound = Sound(
-            os.path.join('assets/sounds/capture.wav'))
+            resource_path('assets/sounds/capture.wav'))
 
     def change_theme(self):
         self.idx += 1
