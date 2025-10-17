@@ -1,5 +1,6 @@
 import pygame
 import sys
+import os
 
 from const import *
 from game import Game
@@ -12,9 +13,14 @@ class Main:
         pygame.init()
         self.screen = pygame.display.set_mode( (WIDTH, HEIGHT) )
         pygame.display.set_caption('Chess')
-        icon_image = pygame.image.load('assets/icon.png')
-            # 2. Set the window icon
-        pygame.display.set_icon(icon_image)
+        
+        # Load and set window icon
+        icon_path = os.path.join('assets', 'icon.png')
+        if os.path.exists(icon_path):
+            icon_image = pygame.image.load(icon_path)
+            pygame.display.set_icon(icon_image)
+        else:
+            print(f"Warning: Icon file not found at {icon_path}")
 
         self.game = Game()
 
@@ -116,7 +122,7 @@ class Main:
                     if event.key == pygame.K_t:
                         game.change_theme()
 
-                     # changing themes
+                    # reset game
                     if event.key == pygame.K_r:
                         game.reset()
                         game = self.game
