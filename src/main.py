@@ -30,7 +30,7 @@ class Main:
         # UI: bot selectors and reset
         self.font = pygame.font.SysFont('monospace', 16, bold=True)
         from ui import BotSelector, Button
-        options = ['human', 'random', 'minimax', 'deepblue', 'komodo', 'stockfish']
+        options = ['human', 'random', 'minimax', 'deepblue', 'magnus', 'komodo', 'stockfish']
         # place selectors top-right
         w, h = self.screen.get_size()
         # Sidebar will host these; initialize with placeholder positions
@@ -52,6 +52,14 @@ class Main:
         self.engine_side = None
         # minimax depth (kept internal, slider removed for smoother UI)
         self.minimax_depth = 2
+        # start background load of Magnus opening book if present (non-blocking)
+        try:
+            import ai as _ai
+            tbook = threading.Thread(target=_ai.load_magnus_book, daemon=True)
+            tbook.start()
+        except Exception:
+            # safe to ignore if loader not available
+            pass
 
     def mainloop(self):
         

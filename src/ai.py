@@ -1,5 +1,6 @@
 import random
 import copy
+import json
 
 from move import Move
 from square import Square
@@ -170,8 +171,120 @@ def find_engine_binary(name):
     return None
 
 
+# --- Magnus opening book support ---
+_magnus_book = None
+_magnus_book_path = os.path.normpath(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'magnus_book.json'))
+
+def load_magnus_book(path=None):
+    """Load the magnus opening book JSON into memory. Safe to call multiple times."""
+    global _magnus_book
+    if _magnus_book is not None:
+        return _magnus_book
+    p = path or _magnus_book_path
+    if not os.path.exists(p):
+        _magnus_book = None
+        return None
+    try:
+        # Load raw book then normalize keys to our internal simplified FEN so
+        # that castling/en-passant differences don't prevent matches.
+        import magnus_book as _mb
+        with open(p, 'r', encoding='utf-8') as f:
+            raw = json.load(f)
+        normalized = {}
+        for fen, moves in raw.items():
+            try:
+                key = _mb.simplify_fen(fen)
+            except Exception:
+                key = fen
+            # merge counts if multiple raw keys collapse to the same normalized key
+            if key not in normalized:
+                normalized[key] = moves.copy()
+            else:
+                for uci, cnt in moves.items():
+                    normalized[key][uci] = normalized[key].get(uci, 0) + cnt
+        _magnus_book = normalized
+        return _magnus_book
+    except Exception:
+        _magnus_book = None
+        return None
+
+
+def move_to_uci(move):
+    """Convert internal Move object to a UCI string like 'e2e4'."""
+    try:
+        c1 = move.initial.col
+        r1 = move.initial.row
+        c2 = move.final.col
+        r2 = move.final.row
+        file_from = chr(ord('a') + c1)
+        rank_from = str(8 - r1)
+        file_to = chr(ord('a') + c2)
+        rank_to = str(8 - r2)
+        return f"{file_from}{rank_from}{file_to}{rank_to}"
+    except Exception:
+        return None
+
+
+def magnus_bot(board, color, randomness=0.0):
+    """Try to pick a move from Magnus Carlsen PGN book.
+
+    Returns a Move or None if no book move available.
+    randomness: 0.0 picks most frequent move, >0.0 does weighted sampling.
+    """
+    book = load_magnus_book()
+    if not book:
+        return None
+    fen = board_to_fen(board, color_to_move=color)
+    if fen is None:
+        return None
+    # book keys use the same normalized FEN shape as board_to_fen
+    moves_dict = book.get(fen)
+    if not moves_dict:
+        return None
+
+    # build set of legal UCIs from our legal move generator
+    legal_moves = all_legal_moves(board, color)
+    legal_ucis = set()
+    for m in legal_moves:
+        u = move_to_uci(m)
+        if u:
+            legal_ucis.add(u)
+
+    entries = [(uci, cnt) for uci, cnt in moves_dict.items() if uci in legal_ucis]
+    if not entries:
+        return None
+
+    if randomness <= 0.0:
+        entries.sort(key=lambda x: x[1], reverse=True)
+        chosen_uci = entries[0][0]
+    else:
+        ucis, counts = zip(*entries)
+        total = sum(counts)
+        weights = [c/total for c in counts]
+        adjusted = [((1-randomness) * w + randomness * (1/len(weights))) for w in weights]
+        chosen_uci = random.choices(ucis, weights=adjusted, k=1)[0]
+
+    return uci_to_move(chosen_uci)
+
+
 # unify API
 def get_bot_move(board, color, engine='random', depth=2):
+    # magnus book selection: try book first then fall back
+    if engine == 'magnus':
+        try:
+            m = magnus_bot(board, color, randomness=0.0)
+            if m:
+                return m
+        except Exception:
+            pass
+        # fallback chain: deepblue -> stockfish -> random
+        m = deep_blue_bot(board, color, depth=2)
+        if m:
+            return m
+        try:
+            return get_bot_move(board, color, engine='stockfish', depth=depth)
+        except Exception:
+            return random_bot(board, color)
     if engine == 'random':
         return random_bot(board, color)
     elif engine == 'minimax':
