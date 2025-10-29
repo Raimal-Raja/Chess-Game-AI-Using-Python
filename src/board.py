@@ -96,6 +96,60 @@ class Board:
         
         return False
 
+    def is_in_check(self, color):
+        """Return True if the king of the given color is currently in check."""
+        # find king position
+        king_row = None
+        king_col = None
+        for row in range(ROWS):
+            for col in range(COLS):
+                if self.squares[row][col].has_piece():
+                    p = self.squares[row][col].piece
+                    from piece import King
+                    if isinstance(p, King) and p.color == color:
+                        king_row, king_col = row, col
+                        break
+            if king_row is not None:
+                break
+
+        if king_row is None:
+            return False
+
+        # for each enemy piece, generate its moves (non-check filtering) and see
+        # if any move captures/targets the king square
+        for row in range(ROWS):
+            for col in range(COLS):
+                if self.squares[row][col].has_piece():
+                    p = self.squares[row][col].piece
+                    if p.color != color:
+                        # clear old moves and calculate pseudo-legal moves
+                        p.clear_moves()
+                        self.calc_moves(p, row, col, bool=False)
+                        for m in p.moves:
+                            if m.final.row == king_row and m.final.col == king_col:
+                                return True
+
+        return False
+
+    def is_checkmate(self, color):
+        """Return True if the given color is in checkmate."""
+        # first, must be in check
+        if not self.is_in_check(color):
+            return False
+
+        # if any legal move exists for color that escapes check, it's not mate
+        for row in range(ROWS):
+            for col in range(COLS):
+                if self.squares[row][col].has_piece():
+                    p = self.squares[row][col].piece
+                    if p.color == color:
+                        p.clear_moves()
+                        self.calc_moves(p, row, col, bool=True)
+                        if len(p.moves) > 0:
+                            return False
+
+        return True
+
     def calc_moves(self, piece, row, col, bool=True):
         '''
             Calculate all the possible (valid) moves of an specific piece on a specific position

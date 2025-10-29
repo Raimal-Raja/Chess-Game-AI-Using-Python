@@ -32,8 +32,14 @@ class Dragger:
         self.mouseX, self.mouseY = pos # (xcor, ycor)
 
     def save_initial(self, pos):
+        # kept for compatibility (pos in pixels)
         self.initial_row = pos[1] // SQSIZE
         self.initial_col = pos[0] // SQSIZE
+
+    def save_initial_rc(self, row, col):
+        """Save initial square by grid coordinates (row, col). Use this when SQSIZE is dynamic."""
+        self.initial_row = row
+        self.initial_col = col
 
     def drag_piece(self, piece):
         self.piece = piece
