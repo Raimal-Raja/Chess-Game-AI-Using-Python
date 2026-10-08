@@ -2,9 +2,9 @@
 
 Python desktop chess project with board logic, a graphical interface, AI components, and engine-related assets.
 
-## Repository guide
+## Setup and repository reference
 
-### Contents
+### Project structure
 
 - [assets](assets)
 - [build_exe.bat](build_exe.bat)
@@ -42,9 +42,15 @@ python main.py
 
 ### Configuration and limitations
 
+The desktop interface needs its GUI dependencies and any configured engine assets. Engine binaries and interactive matches were not executed during this audit.
+
 ### Validation
 
-Reviewed on 2026-10-08. Python syntax checks passed for 18 source files. Syntax validation does not establish runtime correctness or dependency compatibility.
+Audit: 2026-10-08. Repository structure, setup instructions and description were reviewed. 18 existing Python files passed syntax checks; changed files and new regression tests were checked separately. Syntax checks do not establish full runtime correctness. External APIs, live scraping, GUI interaction, notebook training and production deployment were not comprehensively exercised.
+
+### Repository description
+
+The short GitHub description is provided in [REPOSITORY_DESCRIPTION.md](REPOSITORY_DESCRIPTION.md).
 
 ### Contributions
 
