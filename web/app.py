@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 app = FastAPI(title="Chess Studio")
 ROOT = Path(__file__).parent
 app.mount('/static', StaticFiles(directory=ROOT / 'static'), name='static')
+app.mount('/pieces', StaticFiles(directory=ROOT.parent / 'assets/images/imgs-128px'), name='pieces')
 
 class Position(BaseModel):
     moves: list[str] = Field(default_factory=list, max_length=600)
@@ -42,14 +43,19 @@ def state(board):
         status = ('White' if board.turn else 'Black') + (' is in check' if board.is_check() else ' to move')
     replay = chess.Board()
     history = []
+    captures = {'white': [], 'black': []}
     for move in board.move_stack:
+        if replay.is_capture(move):
+            captured = replay.piece_at(move.to_square)
+            symbol = captured.symbol() if captured else ('p' if replay.turn else 'P')
+            captures['white' if replay.turn else 'black'].append(symbol)
         history.append(replay.san(move))
         replay.push(move)
     return {'fen': board.fen(), 'turn': 'white' if board.turn else 'black',
             'pieces': {chess.square_name(s): p.symbol() for s, p in board.piece_map().items()},
             'legal_moves': [] if outcome else [m.uci() for m in board.legal_moves],
             'moves': [m.uci() for m in board.move_stack], 'history': history,
-            'status': status, 'game_over': bool(outcome), 'check': board.is_check(),
+            'status': status, 'game_over': bool(outcome), 'check': board.is_check(), 'captures': captures,
             'king': chess.square_name(board.king(board.turn)),
             'pgn': str(chess.pgn.Game.from_board(board))}
 
