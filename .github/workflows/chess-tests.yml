@@ -14,6 +14,9 @@ jobs:
       - run: pip install -r requirements-web.txt pygame pytest httpx
       - run: python -m pytest tests -q
       - run: npm install
+      - run: npm run test:engine
+      - run: python tools/setup_engine.py
+      - run: npx playwright install --with-deps chromium
       - name: Test browser controls against the API
         run: |
           python -m uvicorn web.app:app --port 8000 &
@@ -24,3 +27,4 @@ jobs:
             sleep 1
           done
           npm run test:ui
+          npm run test:browser

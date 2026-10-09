@@ -1,8 +1,179 @@
 <!doctype html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Chess Studio — Your next move</title><link rel="stylesheet" href="/static/style.css"></head>
-<body><header><a class="brand" href="/">♞ <span>CHESS<span class="brand-light">STUDIO</span></span></a><span class="header-note">A little strategy. A better next move.</span><button id="theme" class="quiet" aria-label="Toggle light theme">☀ Light mode</button></header>
-<main><section class="intro"><div class="eyebrow">THE BOARD IS YOURS</div><h1>Your next move<span>.</span></h1><p>Find your rhythm. Challenge the AI, or share a game with a friend.</p></section>
-<div class="workspace"><section class="play-area"><div class="player"><div class="avatar">♟</div><div><strong id="opponent-name">Studio AI</strong><small id="opponent-detail">Black · Balanced</small></div><span class="player-tag" id="top-tag">OPPONENT</span></div><div class="board-frame"><div id="board" role="group" aria-label="Chess board"></div></div><div class="player"><div class="avatar you">♙</div><div><strong id="you-name">You</strong><small id="you-detail">White · Make it count</small></div><span class="player-tag accent" id="bottom-tag">YOUR SIDE</span></div><div class="board-footer"><span>Click a piece, then its destination.</span><button id="flip" class="quiet">↻ Flip board</button></div></section>
-<aside><section class="card game-card"><div class="card-heading"><span class="eyebrow">LIVE GAME</span><span id="indicator" class="live">● READY</span></div><h2 id="status" aria-live="polite">White to move</h2><p id="hint">A fresh board. Endless possibilities.</p><div class="mode-tabs" role="group" aria-label="Game mode"><button data-mode="ai" class="active">Play AI</button><button data-mode="local">Two players</button></div><div id="ai-settings"><label for="side">Your pieces</label><div class="side-options"><button data-side="white" class="active">♔ White</button><button data-side="black">♚ Black</button></div><label for="level">AI difficulty</label><select id="level"><option value="1">Casual · Random moves</option><option value="2" selected>Balanced · Thoughtful play</option><option value="3">Challenging · Deeper search</option></select></div><button id="new" class="primary">New game <span>↗</span></button><div class="tools"><button id="undo">↶ Undo move</button><button id="export">↓ Export PGN</button></div><p class="settings-note">Side, difficulty, and mode apply to your next game.</p></section><section class="card history-card"><div class="card-heading"><span class="eyebrow">MOVE JOURNAL</span><span id="move-count">0 moves</span></div><div class="history-header"><span>#</span><span>WHITE</span><span>BLACK</span></div><div id="history"><div class="empty"><span>♘</span><p>Every great game starts<br>with a single move.</p></div></div></section><div id="error" role="alert"></div><div class="tip"><span>✦</span><p><strong>A thought for the board</strong><br>Control the center. Develop your pieces. Keep your king safe.</p></div></aside></div></main>
-<footer><span>CHESS STUDIO</span><span>Built for the love of the game.</span><span>Python-powered · Open source</span></footer>
-<dialog id="promotion"><h2>Choose your promotion</h2><p>Your pawn has earned something greater.</p><div id="promotion-options"></div><button id="cancel-promotion" class="quiet">Cancel</button></dialog><script src="/static/app.js"></script></body></html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Chess Studio — Your next move</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/"
+        >♞ <span>CHESS<span class="brand-light">STUDIO</span></span></a
+      ><span class="header-note">Your board. A world-class engine.</span
+      ><button id="theme" class="quiet" aria-label="Toggle light theme">
+        ☀ Light mode
+      </button>
+    </header>
+    <main>
+      <section class="intro">
+        <div class="eyebrow">THE BOARD IS YOURS</div>
+        <h1>Your next move<span>.</span></h1>
+        <p>
+          Find your rhythm. Challenge Stockfish, sharpen your strategy, or share
+          a game with a friend.
+        </p>
+      </section>
+      <div class="workspace">
+        <section class="play-area">
+          <div class="player">
+            <div class="avatar">♟</div>
+            <div>
+              <strong id="opponent-name">Studio AI</strong
+              ><small id="opponent-detail">Black · Balanced</small>
+            </div>
+            <span
+              id="top-captures"
+              class="captures"
+              aria-label="Captured pieces"
+            ></span
+            ><span class="player-tag" id="top-tag">OPPONENT</span>
+          </div>
+          <div class="board-frame">
+            <div id="board" role="group" aria-label="Chess board"></div>
+          </div>
+          <div class="player">
+            <div class="avatar you">♙</div>
+            <div>
+              <strong id="you-name">You</strong
+              ><small id="you-detail">White · Make it count</small>
+            </div>
+            <span
+              id="bottom-captures"
+              class="captures"
+              aria-label="Captured pieces"
+            ></span
+            ><span class="player-tag accent" id="bottom-tag">YOUR SIDE</span>
+          </div>
+          <div class="board-footer">
+            <span>Click a piece, then its destination.</span
+            ><button id="flip" class="quiet">↻ Flip board</button>
+          </div>
+          <section class="card engine-card">
+            <div class="card-heading">
+              <span class="eyebrow">ENGINE INSIGHT</span
+              ><span id="engine-version">STOCKFISH 19</span>
+            </div>
+            <div class="eval-row">
+              <strong id="evaluation">—</strong
+              ><span>White perspective · last search</span>
+            </div>
+            <div class="eval-track"><div id="eval-fill"></div></div>
+            <div class="engine-metrics">
+              <span>DEPTH <b id="depth">—</b></span
+              ><span>NODES <b id="nodes">—</b></span>
+            </div>
+            <p id="engine-status" aria-live="polite">Ready when you are.</p>
+            <div id="principal-line">The next chapter is unwritten.</div>
+          </section>
+        </section>
+        <aside>
+          <section class="card game-card">
+            <div class="card-heading">
+              <span class="eyebrow">LIVE GAME</span
+              ><span id="indicator" class="live">● READY</span>
+            </div>
+            <h2 id="status" aria-live="polite">White to move</h2>
+            <p id="hint">A fresh board. Endless possibilities.</p>
+            <div class="mode-tabs" role="group" aria-label="Game mode">
+              <button data-mode="ai" class="active">Play AI</button
+              ><button data-mode="local">Two players</button>
+            </div>
+            <div id="ai-settings">
+              <label for="side">Your pieces</label>
+              <div class="side-options">
+                <button data-side="white" class="active">♔ White</button
+                ><button data-side="black">♚ Black</button>
+              </div>
+              <label for="level">AI difficulty</label
+              ><select id="level">
+                <option value="1">Casual · Stockfish Lite</option>
+                <option value="2">Club · Stockfish Lite</option>
+                <option value="3">Expert · Stockfish Lite</option>
+                <option value="4" selected>
+                  Maximum · Full Stockfish 19
+                </option></select
+              ><label for="thinking">Thinking time per move</label
+              ><select id="thinking">
+                <option value="1">1 second · Quick</option>
+                <option value="3">3 seconds · Focused</option>
+                <option value="8" selected>8 seconds · Deep</option>
+                <option value="15">15 seconds · Extended</option>
+              </select>
+              <p class="download-note">
+                Maximum uses the full engine (~94 MB on first use). Lite loads
+                ~1.6 MB. Strength depends on your device and thinking time.
+              </p>
+            </div>
+            <button id="new" class="primary">New game <span>↗</span></button>
+            <div class="tools">
+              <button id="undo">↶ Undo turn</button
+              ><button id="export">↓ Export PGN</button>
+            </div>
+            <div class="tools">
+              <button id="analyse">✦ Find a hint</button
+              ><button id="sound" aria-pressed="false">♪ Sound off</button>
+            </div>
+            <button id="retry" hidden>Retry engine</button>
+            <p class="settings-note">
+              Side, difficulty, and mode apply to your next game.
+            </p>
+          </section>
+          <section class="card history-card">
+            <div class="card-heading">
+              <span class="eyebrow">MOVE JOURNAL</span
+              ><span id="move-count">0 moves</span>
+            </div>
+            <div class="history-header">
+              <span>#</span><span>WHITE</span><span>BLACK</span>
+            </div>
+            <div id="history">
+              <div class="empty">
+                <span>♘</span>
+                <p>Every great game starts<br />with a single move.</p>
+              </div>
+            </div>
+          </section>
+          <div id="error" role="alert"></div>
+          <div class="tip">
+            <span>✦</span>
+            <p>
+              <strong>A thought for the board</strong><br />Control the center.
+              Develop your pieces. Keep your king safe.
+            </p>
+          </div>
+        </aside>
+      </div>
+    </main>
+    <footer>
+      <span>CHESS STUDIO</span><span>Built for the love of the game.</span
+      ><span
+        ><a href="/static/engine/Copying.txt">Stockfish GPLv3</a> ·
+        <a
+          href="https://github.com/nmrugg/stockfish.js/tree/v19.0.0"
+          target="_blank"
+          rel="noopener"
+          >Engine source</a
+        ></span
+      >
+    </footer>
+    <dialog id="promotion">
+      <h2>Choose your promotion</h2>
+      <p>Your pawn has earned something greater.</p>
+      <div id="promotion-options"></div>
+      <button id="cancel-promotion" class="quiet">Cancel</button>
+    </dialog>
+    <script src="/static/stockfish-client.js"></script>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

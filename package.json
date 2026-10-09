@@ -2,10 +2,13 @@
   "name": "chess-studio-ui-checks",
   "private": true,
   "scripts": {
-    "test:ui": "node tests/ui.cjs"
+    "test:ui": "node tests/ui.cjs",
+    "test:engine": "node tests/engine-client.cjs",
+    "test:browser": "node tests/browser.cjs"
   },
   "devDependencies": {
-    "jsdom": "^30.1.2"
+    "jsdom": "^30.1.2",
+    "playwright": "1.64.0"
   },
   "engines": {
     "node": ">=22"

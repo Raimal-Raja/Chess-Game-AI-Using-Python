@@ -88,3 +88,10 @@ def test_ai_game_and_export():
 
 def test_invalid_difficulty():
     assert request('ai',level=9).status_code == 422
+
+def test_piece_assets_and_captured_pieces():
+    assert client.get('/pieces/white_king.png').status_code == 200
+    s=request('move',['e2e4','d7d5'],move='e4d5').json()
+    assert s['captures']['white'] == ['p']
+    s=request('move',['e2e4','a7a6','e4e5','d7d5'],move='e5d6').json()
+    assert s['captures']['white'] == ['p']
