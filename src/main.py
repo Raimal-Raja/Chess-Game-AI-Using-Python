@@ -47,6 +47,7 @@ class Main:
         self.settings_btn = Button((w-40, 10, 30, 30), 'S', self.font, bg=(180,200,220))
         # engine background thread queue
         self.engine_queue = queue.Queue()
+        self.engine_generation = 0
         self.engine_thread = None
         self.engine_thread_running = False
         self.engine_side = None
@@ -144,6 +145,8 @@ class Main:
                             self.black_engine = self.black_bot_btn.current()
                             continue
                         if self.reset_btn.is_clicked(event.pos):
+                            self.engine_generation += 1
+                            self.engine_thread_running = False
                             game.reset()
                             game = self.game
                             board = self.game.board
@@ -271,6 +274,8 @@ class Main:
 
                     # reset game
                     if event.key == pygame.K_r:
+                        self.engine_generation += 1
+                        self.engine_thread_running = False
                         game.reset()
                         game = self.game
                         board = self.game.board
@@ -282,28 +287,32 @@ class Main:
                     sys.exit()
             # if it's engine's turn, call its move
             # Engine scheduling: run engine move once in background thread and place result in engine_queue
-            from ai import get_bot_move
+            from ai import get_bot_move, all_legal_moves
 
-            def engine_worker(board_copy, color, engine_name, depth):
-                m = get_bot_move(board_copy, color, engine=engine_name, depth=depth)
+            def engine_worker(board_copy, color, engine_name, depth, generation):
+                try:
+                    m = get_bot_move(board_copy, color, engine=engine_name, depth=depth)
+                except Exception as exc:
+                    print(f"Engine failed: {exc}")
+                    m = None
                 # Only enqueue the computed move; do not toggle engine flags here.
                 # The main loop will clear the running flag after the move is applied
-                self.engine_queue.put((color, m))
+                self.engine_queue.put((generation, color, m))
 
             # start worker if engine turn and not already running
-            if game.next_player == 'white' and self.white_engine != 'human' and not self.engine_thread_running:
+            if game.next_player == 'white' and self.white_engine != 'human' and not self.engine_thread_running and not board.is_checkmate(game.next_player) and bool(all_legal_moves(board, game.next_player)):
                 self.engine_thread_running = True
                 self.engine_side = 'white'
                 # create a deep copy so the engine computes on a stable snapshot
                 bcopy = copy.deepcopy(board)
-                t = threading.Thread(target=engine_worker, args=(bcopy, 'white', self.white_engine, self.minimax_depth), daemon=True)
+                t = threading.Thread(target=engine_worker, args=(bcopy, 'white', self.white_engine, self.minimax_depth, self.engine_generation), daemon=True)
                 t.start()
 
-            if game.next_player == 'black' and self.black_engine != 'human' and not self.engine_thread_running:
+            if game.next_player == 'black' and self.black_engine != 'human' and not self.engine_thread_running and not board.is_checkmate(game.next_player) and bool(all_legal_moves(board, game.next_player)):
                 self.engine_thread_running = True
                 self.engine_side = 'black'
                 bcopy = copy.deepcopy(board)
-                t = threading.Thread(target=engine_worker, args=(bcopy, 'black', self.black_engine, self.minimax_depth), daemon=True)
+                t = threading.Thread(target=engine_worker, args=(bcopy, 'black', self.black_engine, self.minimax_depth, self.engine_generation), daemon=True)
                 t.start()
 
             # apply any completed engine move
@@ -315,9 +324,18 @@ class Main:
                 current_time = pygame.time.get_ticks()
                 # Enforce a minimum 1 second delay between moves
                 if current_time - self.last_move_time >= 1000:  # 1000ms = 1 second
-                    color, move = self.engine_queue.get_nowait()
-                    if move:
+                    generation, color, move = self.engine_queue.get_nowait()
+                    if generation != self.engine_generation:
+                        continue
+                    self.engine_thread_running = False
+                    self.engine_side = None
+                    if move and color == game.next_player:
                         piece = board.squares[move.initial.row][move.initial.col].piece
+                        if piece is None or piece.color != color:
+                            continue
+                        board.calc_moves(piece, move.initial.row, move.initial.col, bool=True)
+                        if not board.valid_move(piece, move):
+                            continue
                         captured = board.squares[move.final.row][move.final.col].has_piece()
                         board.move(piece, move)
                         board.set_true_en_passant(piece)

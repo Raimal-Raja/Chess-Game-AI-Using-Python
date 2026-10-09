@@ -48,12 +48,12 @@ def minimax_bot(board, color, depth=2):
     """Return best Move for color using depth-limited minimax (no alpha-beta for simplicity)."""
     def minimax(node_board, d, maximizing):
         if d == 0:
-            return evaluate(node_board), None
+            return evaluate(node_board) * (1 if color == 'white' else -1), None
 
         color_to_move = color if maximizing else ('black' if color == 'white' else 'white')
         legal = all_legal_moves(node_board, color_to_move)
         if not legal:
-            return evaluate(node_board), None
+            return evaluate(node_board) * (1 if color == 'white' else -1), None
 
         best_move = None
         if maximizing:
@@ -117,12 +117,12 @@ def deep_blue_bot(board, color, depth=4):
     def alpha_beta(node_board, depth_left, alpha, beta, maximizing):
         # terminal or depth
         if depth_left == 0:
-            return eval_board(node_board), None
+            return eval_board(node_board) * (1 if color == 'white' else -1), None
 
         color_to_move = color if maximizing else ('black' if color == 'white' else 'white')
         legal = all_legal_moves(node_board, color_to_move)
         if not legal:
-            return eval_board(node_board), None
+            return eval_board(node_board) * (1 if color == 'white' else -1), None
 
         best_move = None
         if maximizing:
