@@ -1,0 +1,26 @@
+name: Chess checks
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pip install -r requirements-web.txt pygame pytest httpx
+      - run: python -m pytest tests -q
+      - run: npm install
+      - name: Test browser controls against the API
+        run: |
+          python -m uvicorn web.app:app --port 8000 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/health; then break; fi
+            sleep 1
+          done
+          npm run test:ui

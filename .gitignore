@@ -1,2 +1,7 @@
 src/__pycache__/
 assets/images/.DS_Store
+
+.venv/
+__pycache__/
+.pytest_cache/
+node_modules/
