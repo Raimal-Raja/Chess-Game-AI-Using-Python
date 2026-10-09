@@ -37,7 +37,7 @@ Alternatively use the included `render.yaml` Blueprint. Render assigns an HTTPS 
 ### Verification
 
 ```bash
-python -m pip install pytest httpx
+python -m pip install pytest httpx pygame
 python -m pytest tests -q
 ```
 
