@@ -7,10 +7,11 @@ class RatedClient {
     this.match = null;
     this.pollTimer = null;
     this.clockTimer = null;
-    this.pending = false;
+    this.pending = false;this.emailCooldownUntil=0;
     this.message = document.getElementById('account-status');
     document.getElementById('account-github').onclick=()=>{try{sessionStorage.setItem('chess-rated-invite',new URL(location.href).searchParams.get('match')||document.getElementById('rated-code').value);}catch{}};
     document.getElementById('account-form').onsubmit = event => {event.preventDefault();this.authenticate('login');};
+    document.getElementById('account-resend').onclick=()=>this.resendConfirmation();
     document.getElementById('account-signup').onclick = () => this.authenticate('signup');
     document.getElementById('account-logout').onclick = () => this.signOut();
     document.getElementById('rated-create').onclick = () => this.action(() => this.request('/matches', 'POST')).then(m => m && this.apply(m));
@@ -34,7 +35,7 @@ class RatedClient {
         return this.request(path,method,data,false);
       }
       const body=await response.json().catch(()=>null);
-      if(!response.ok){const e=Error(typeof body?.detail==='string'?body.detail:'Rated play is temporarily unavailable.');e.status=response.status;throw e;}
+      if(!response.ok){const e=Error(typeof body?.detail==='string'?body.detail:'Rated play is temporarily unavailable.');e.status=response.status;e.retryAfter=Number(response.headers.get('Retry-After'))||0;throw e;}
       return body;
     } catch(error){if(error.name==='AbortError')throw Error('The online service took too long. Please retry.');throw error;}
     finally {clearTimeout(timer);}
@@ -57,6 +58,7 @@ class RatedClient {
     const signed=!!this.profile;
     document.getElementById('account-github').hidden=signed||!this.githubEnabled;
     document.getElementById('account-form').hidden=signed;
+    document.getElementById('account-resend').hidden=signed;
     document.getElementById('rated-lobby').hidden=!signed;
     document.getElementById('rated-leaderboard').hidden=!signed;
     if(signed) {
@@ -72,11 +74,13 @@ class RatedClient {
     if(this.pending)return null;
     this.pending=true;this.setButtons();
     try {return await fn();}
-    catch(error){this.message.textContent=error.message;return null;}
+    catch(error){this.message.textContent=error.message;if(error.retryAfter)this.emailCooldown(error.retryAfter);return null;}
     finally {this.pending=false;this.setButtons();}
   }
   setButtons() {
     for(const id of ['rated-create','rated-resign','account-signup','account-logout'])document.getElementById(id).disabled=this.pending||(id==='rated-create'&&this.match&&!['finished','cancelled'].includes(this.match.status));
+    document.getElementById('account-resend').disabled=this.pending||Date.now()<this.emailCooldownUntil;
+    document.getElementById('account-signup').disabled=this.pending||Date.now()<this.emailCooldownUntil;
     for(const form of ['account-form','rated-join-form'])document.getElementById(form).querySelector('button[type="submit"]').disabled=this.pending;
   }
   async authenticate(kind) {
@@ -85,9 +89,19 @@ class RatedClient {
     const result=await this.action(()=>this.request('/auth/'+kind,'POST',{email,password,name}));
     document.getElementById('account-password').value='';
     if(!result)return;
-    if(!result.signed_in){this.message.textContent=result.message;return;}
+    if(!result.signed_in){this.message.textContent=result.message;if(result.retry_after)this.emailCooldown(result.retry_after);return;}
     try {this.profile=await this.request('/me');this.renderAccount();await this.resume();}
     catch(error){this.message.textContent=error.message;}
+  }
+  emailCooldown(seconds) {
+    this.emailCooldownUntil=Date.now()+seconds*1000;clearInterval(this.emailTimer);
+    const update=()=>{const remaining=Math.ceil((this.emailCooldownUntil-Date.now())/1000);document.getElementById('account-resend').textContent=remaining>0?'Resend available in '+remaining+'s':'Resend confirmation email';this.setButtons();if(remaining<=0)clearInterval(this.emailTimer);};
+    update();this.emailTimer=setInterval(update,1000);
+  }
+  async resendConfirmation() {
+    const input=document.getElementById('account-email');if(!input.reportValidity())return;
+    const result=await this.action(()=>this.request('/auth/resend','POST',{email:input.value.trim()}));
+    if(result){this.message.textContent=result.message;this.emailCooldown(result.retry_after);}
   }
   async resume() {
     let code=new URL(location.href).searchParams.get('match');

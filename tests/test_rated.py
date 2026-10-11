@@ -200,3 +200,42 @@ def test_config_reports_missing_names_without_secrets(client, monkeypatch):
     assert response.json()['missing_settings'] == ['DATABASE_URL']
     assert not response.json()['enabled']
     assert 'private-test-value' not in response.text
+
+
+def test_confirmation_resend_five_minute_limit_and_reload(client, monkeypatch):
+    stamp = rated.now()
+    calls=[]
+    monkeypatch.setattr(rated, 'auth_request', lambda path, **kw: calls.append((path,kw)) or {})
+    monkeypatch.setattr(rated, 'now', lambda:stamp)
+    email={'email':'User@example.com'}
+    assert post(client, '/auth/resend', data=email).status_code == 200
+    assert calls[0][0] == 'resend' and calls[0][1]['payload']['type'] == 'signup'
+    blocked=post(client, '/auth/resend', data={'email':'user@example.com'})
+    assert blocked.status_code == 429 and blocked.headers['retry-after'] == '60'
+    # Separate sessions/clients still share the persistent budget.
+    for i in range(1,5):
+        stamp += timedelta(seconds=60)
+        assert post(client, '/auth/resend', data=email).status_code == 200
+    stamp += timedelta(seconds=30)
+    assert post(client, '/auth/resend', data=email).status_code == 429
+    assert len(calls) == 5
+    stamp += timedelta(seconds=30)
+    assert post(client, '/auth/resend', data=email).status_code == 200
+    assert post(client, '/auth/resend', data={'email':'other@example.com'}).status_code == 200
+    assert post(client, '/auth/resend', data={'email':'invalid'}).status_code == 400
+
+
+def test_signup_and_resend_share_confirmation_budget(client, monkeypatch):
+    monkeypatch.setattr(rated, 'auth_request', lambda *args, **kwargs:{})
+    assert post(client, '/auth/signup', data={'email':'test@example.com','password':'password123'}).status_code == 200
+    assert post(client, '/auth/resend', data={'email':'test@example.com'}).status_code == 429
+    assert post(client, '/auth/resend', data={'email':'test@example.com'}, origin='https://evil.example').status_code == 403
+
+
+def test_unconfirmed_login_has_actionable_message(client, monkeypatch):
+    import httpx
+    monkeypatch.setenv('SUPABASE_URL','https://project.supabase.co')
+    monkeypatch.setenv('SUPABASE_PUBLISHABLE_KEY','test-key')
+    monkeypatch.setattr(rated.httpx,'request', lambda *args, **kwargs: httpx.Response(400,json={'code':'email_not_confirmed'}))
+    response=post(client,'/auth/login',data={'email':'player@example.com','password':'password123'})
+    assert response.status_code == 401 and 'Resend confirmation email' in response.json()['detail']

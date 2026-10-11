@@ -36,6 +36,12 @@ class Player(Base):
     draws: Mapped[int] = mapped_column(Integer, default=0)
     current_match: Mapped[str | None] = mapped_column(String(12), nullable=True)
 
+class EmailBudget(Base):
+    __tablename__ = 'email_budgets'
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    sends: Mapped[list] = mapped_column(JSON, default=list)
+
+
 class Match(Base):
     __tablename__ = 'matches'
     id: Mapped[str] = mapped_column(String(12), primary_key=True)
@@ -87,7 +93,7 @@ def database(url):
     Base.metadata.create_all(engine)
     if engine.dialect.name == 'postgresql':
         with engine.begin() as connection:
-            for table in ('players', 'matches'):
+            for table in ('players', 'matches', 'email_budgets'):
                 connection.execute(text(f'ALTER TABLE chess.{table} ENABLE ROW LEVEL SECURITY'))
     return engine
 
@@ -119,6 +125,11 @@ def auth_request(path, *, method='POST', payload=None, token=None):
     except (httpx.HTTPError, ValueError):
         raise HTTPException(503, 'Account service unavailable. Please retry.') from None
     if not response.is_success:
+        code = data.get('code') or data.get('error_code') if isinstance(data, dict) else None
+        if code == 'email_not_confirmed':
+            raise HTTPException(401, 'Your account exists, but your email is not confirmed. Use Resend confirmation email, open the newest email, then sign in.')
+        if code == 'email_address_not_authorized':
+            raise HTTPException(400, 'Email delivery is not authorized. Configure custom SMTP in Supabase.')
         if response.status_code == 429:
             raise HTTPException(429, 'Too many account requests. Please wait and retry.')
         if method == 'GET' or path.startswith('token'):
@@ -198,16 +209,54 @@ def github_callback(request: Request, code: str = ''):
     return response
 
 
+def reserve_confirmation(email):
+    """Shared across workers/redeploys: five requests per rolling five minutes."""
+    url = os.getenv('DATABASE_URL')
+    if not url:
+        raise HTTPException(503, 'Account email requests need the database configuration.')
+    key = hashlib.sha256(email.strip().lower().encode()).hexdigest()
+    with Session(database(url)) as session, session.begin():
+        if session.bind.dialect.name == 'postgresql':
+            from sqlalchemy.dialects.postgresql import insert
+        else:
+            from sqlalchemy.dialects.sqlite import insert
+        session.execute(insert(EmailBudget).values(id=key, sends=[]).on_conflict_do_nothing(index_elements=['id']))
+        budget = session.scalar(select(EmailBudget).where(EmailBudget.id == key).with_for_update())
+        stamp = now().timestamp()
+        recent = [t for t in budget.sends if stamp-t < 300]
+        wait = max(0, math.ceil(recent[-1]+60-stamp)) if recent else 0
+        if len(recent) >= 5:
+            wait = max(wait, math.ceil(recent[0]+300-stamp))
+        if wait:
+            raise HTTPException(429, f'Please wait {wait} seconds before requesting another confirmation email.',
+                                headers={'Retry-After': str(wait)})
+        budget.sends = [*recent, stamp]
+
+
+class ConfirmationRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+
+
+@router.post('/auth/resend', dependencies=[Depends(same_origin)])
+def resend(req: ConfirmationRequest):
+    if '@' not in req.email:
+        raise HTTPException(400, 'Enter a valid email address.')
+    reserve_confirmation(req.email)
+    auth_request('resend', payload={'type':'signup', 'email':req.email})
+    return {'message':'If this address has an unconfirmed account, a new confirmation email has been requested. Check your spam folder too.', 'retry_after':60}
+
+
 @router.post('/auth/signup', dependencies=[Depends(same_origin)])
 def signup(req: Credentials, response: Response):
     if '@' not in req.email:
         raise HTTPException(400, 'Enter a valid email address.')
+    reserve_confirmation(req.email)
     result = auth_request('signup', payload={'email': req.email, 'password': req.password,
                           'data': {'display_name': req.name.strip()}})
     if result.get('access_token'):
         cookies(response, result)
         return {'signed_in': True}
-    return {'signed_in': False, 'message': 'Check your email to confirm your account, then sign in.'}
+    return {'signed_in': False, 'message': 'Check your email to confirm your account, then sign in.', 'retry_after':60}
 
 
 @router.post('/auth/login', dependencies=[Depends(same_origin)])

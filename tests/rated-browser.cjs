@@ -5,6 +5,11 @@ const assert=require('node:assert/strict');
  const a=await browser.newContext(),b=await browser.newContext(),white=await a.newPage(),black=await b.newPage();
  const errors=[];let engines=0;
  for(const page of [white,black]){page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.url().includes('/engine/'))engines++;});await page.goto(process.env.CHESS_RATED_TEST_URL||'http://127.0.0.1:8766');await page.waitForSelector('#account-form:not([hidden])');}
+ await white.route('**/rated/auth/resend',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({message:'Confirmation requested.',retry_after:60})}));
+ await white.fill('#account-email','white@example.test');await white.click('#account-resend');
+ await white.waitForFunction(()=>document.querySelector('#account-resend').disabled&&document.querySelector('#account-resend').textContent.includes('60s'));
+ await white.unroute('**/rated/auth/resend');
+ console.log('PASS: confirmation resend requires only email and shows a cooldown.');
  for(const [page,email] of [[white,'white@example.test'],[black,'black@example.test']]){
    await page.fill('#account-email',email);await page.fill('#account-password','password123');await page.locator('#account-form button[type="submit"]').click();await page.waitForSelector('#rated-lobby:not([hidden])');
    assert((await page.locator('#account-rating').textContent()).includes('1200'));

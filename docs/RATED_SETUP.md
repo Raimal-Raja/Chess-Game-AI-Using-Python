@@ -37,3 +37,7 @@ The app uses server-side PKCE to exchange the GitHub login code. Tokens never en
 Push the changes, then Render > Manual Deploy > Deploy latest commit (or wait for auto deploy). Sign in with two separate accounts in separate browsers. Create a rated match, copy its invitation, and join with the second account. Play through a result or resign. Both ratings, records, leaderboard and match PGN should update; reloading should preserve the result. An equal-rated decisive game changes ratings by +16/-16. Waiting invitations can be cancelled without changing ratings. Only one unfinished match per account is allowed.
 
 Cloud account/connection testing is required after entering the real settings; local tests use a test-only authentication fixture and SQLite.
+
+## Confirmation resend
+
+The account card offers Resend confirmation email without requiring the password. Signup and resend share a persistent limit of five requests per normalized email address per rolling 300 seconds, with a 60-second minimum interval. Provider failures still consume an attempt to prevent retry floods. Set custom SMTP Minimum interval per user to 60 seconds. Supabase's email rate limit remains project-wide and hourly; size it for all users and your SMTP provider quota. This app does not alter the provider's quota or guarantee delivery. The private email_budgets table stores SHA-256 identifiers and request timestamps, not plaintext email addresses.
