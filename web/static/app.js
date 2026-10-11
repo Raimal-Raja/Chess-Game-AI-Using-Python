@@ -597,6 +597,16 @@ window.addEventListener("pageshow", (event) => {
   }
 });
 
+// Keep mobile's original card order; use a supporting-card row on desktop.
+function arrangeDesktopCards() {
+  const workspace=document.querySelector('.workspace'), area=document.querySelector('.play-area');
+  const insight=document.querySelector('.engine-card');
+  const parent=innerWidth>=900?workspace:area;
+  if(insight.parentElement!==parent)parent.append(insight);
+}
+arrangeDesktopCards();
+window.addEventListener('resize', arrangeDesktopCards);
+
 // Fit the actual board and its nearby controls, rather than guessing a height cap.
 let boardFitFrame;
 function scheduleBoardFit() {
