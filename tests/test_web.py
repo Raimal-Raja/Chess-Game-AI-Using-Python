@@ -95,3 +95,8 @@ def test_piece_assets_and_captured_pieces():
     assert s['captures']['white'] == ['p']
     s=request('move',['e2e4','a7a6','e4e5','d7d5'],move='e5d6').json()
     assert s['captures']['white'] == ['p']
+
+
+def test_app_revalidates_after_deployment():
+    assert client.get('/').headers['cache-control'] == 'no-cache'
+    assert client.get('/static/app.js').headers['cache-control'] == 'no-cache'

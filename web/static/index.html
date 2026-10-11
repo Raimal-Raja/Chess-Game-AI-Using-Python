@@ -98,16 +98,16 @@
               <label for="level">AI difficulty</label
               ><select id="level">
                 <option value="1">Casual · Stockfish Lite</option>
-                <option value="2">Club · Stockfish Lite</option>
+                <option value="2" selected>Club · Stockfish Lite</option>
                 <option value="3">Expert · Stockfish Lite</option>
-                <option value="4" selected>
-                  Maximum · Full Stockfish 19
+                <option value="4">
+                  Maximum · Full Stockfish 19 (~94 MB)
                 </option></select
               ><label for="thinking">Thinking time per move</label
               ><select id="thinking">
-                <option value="1">1 second · Quick</option>
+                <option value="1" selected>1 second · Quick</option>
                 <option value="3">3 seconds · Focused</option>
-                <option value="8" selected>8 seconds · Deep</option>
+                <option value="8">8 seconds · Deep</option>
                 <option value="15">15 seconds · Extended</option>
               </select>
               <p class="download-note">
@@ -173,7 +173,7 @@
       <div id="promotion-options"></div>
       <button id="cancel-promotion" class="quiet">Cancel</button>
     </dialog>
-    <script src="/static/stockfish-client.js"></script>
-    <script src="/static/app.js"></script>
+    <script src="/static/stockfish-client.js?v=2"></script>
+    <script src="/static/app.js?v=2"></script>
   </body>
 </html>

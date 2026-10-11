@@ -23,7 +23,7 @@ let state = null,
   hint = null;
 let soundEnabled = false,
   audio = null;
-let config = { mode: "ai", side: "white", level: 4, seconds: 8 },
+let config = { mode: "ai", side: "white", level: 2, seconds: 1 },
   next = { ...config };
 const imagePath = (p) =>
   "/pieces/" +
@@ -41,18 +41,30 @@ async function api(endpoint, payload) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 75000);
   try {
-    const response = await fetch("/api/" + endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    });
-    const data = await response.json();
-    if (!response.ok)
-      throw Error(
-        typeof data.detail === "string" ? data.detail : "Invalid game request.",
-      );
-    return data;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      let response;
+      try {
+        response = await fetch("/api/" + endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        });
+      } catch (error) {
+        if (controller.signal.aborted)
+          throw Error("The server took too long to respond. Please retry.");
+        if (attempt === 2) throw Error("Cannot reach the server. Check your connection and retry.");
+      }
+      if (!response || ([502, 503, 504].includes(response.status) && attempt < 2)) {
+        await new Promise((resolve) => setTimeout(resolve, (attempt + 1) * 1000));
+        continue;
+      }
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data)
+        throw Error(typeof data?.detail === "string" ? data.detail :
+          "The server is temporarily unavailable. Please retry.");
+      return data;
+    }
   } finally {
     clearTimeout(timeout);
   }
@@ -64,7 +76,7 @@ function save() {
   try {
     localStorage.setItem(
       "chess-studio-game",
-      JSON.stringify({ moves: state.moves, config, flipped }),
+      JSON.stringify({ version: 2, moves: state.moves, config, flipped }),
     );
   } catch {}
 }
@@ -381,6 +393,7 @@ async function runAI() {
     if (token === epoch) {
       $("error").textContent = error.message;
       $("retry").hidden = false;
+      $("retry").textContent = config.level === 4 ? "Retry with faster engine" : "Retry engine";
     }
   } finally {
     if (token === epoch) {
@@ -457,6 +470,12 @@ async function newGame(saved = null) {
 }
 $("new").onclick = () => newGame();
 $("retry").onclick = () => {
+  if (config.level === 4) {
+    config = { ...config, level: 2, seconds: 1 };
+    next = { ...config };
+    syncSettings();
+    save();
+  }
   $("error").textContent = "";
   $("retry").hidden = true;
   runAI();
@@ -552,6 +571,22 @@ try {
     [1, 3, 8, 15].includes(candidate.config?.seconds)
   )
     saved = candidate;
+  if (saved && saved.version !== 2) {
+    saved.config = { ...saved.config,
+      level: saved.config.level === 4 ? 2 : saved.config.level,
+      seconds: saved.config.seconds === 8 ? 1 : saved.config.seconds };
+  }
 } catch {}
 newGame(saved);
-window.addEventListener("pagehide", () => engine.cancel());
+window.addEventListener("pagehide", () => {
+  ++epoch;
+  engine.cancel();
+  engine.dispose();
+});
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted && state && !state.game_over) {
+    busy = false;
+    render();
+    runAI();
+  }
+});

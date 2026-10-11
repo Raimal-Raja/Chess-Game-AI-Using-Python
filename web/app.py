@@ -14,6 +14,18 @@ ROOT = Path(__file__).parent
 app.mount('/static', StaticFiles(directory=ROOT / 'static'), name='static')
 app.mount('/pieces', StaticFiles(directory=ROOT.parent / 'assets/images/imgs-128px'), name='pieces')
 
+@app.middleware('http')
+async def asset_cache(request, call_next):
+    response = await call_next(request)
+    if response.status_code == 200:
+        if request.url.path.startswith('/static/engine/stockfish-19-'):
+            # Pinned engine files are unchanged between deployments.
+            response.headers['Cache-Control'] = 'public, max-age=604800'
+        elif request.url.path == '/' or request.url.path.endswith(('.html', 'app.js', 'stockfish-client.js')):
+            response.headers['Cache-Control'] = 'no-cache'
+    return response
+
+
 class Position(BaseModel):
     moves: list[str] = Field(default_factory=list, max_length=600)
 

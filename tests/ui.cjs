@@ -21,6 +21,7 @@ w.HTMLDialogElement.prototype.close = function () {
 };
 w.StockfishClient = class {
   cancel() {}
+  dispose() {}
   async search({ moves }) {
     const response = await fetch(base + "/api/ai", {
       method: "POST",

@@ -23,9 +23,9 @@ Choose your color, engine level and thinking time, then click **New game**. Clic
 | Casual | Stockfish 19 Lite | 3 / 20 |
 | Club | Stockfish 19 Lite | 10 / 20 |
 | Expert | Stockfish 19 Lite | 20 / 20 |
-| Maximum (default) | Full Stockfish 19 | 20 / 20, no Elo limit |
+| Maximum | Full Stockfish 19 | 20 / 20, no Elo limit |
 
-Thinking time can be 1, 3, 8 (default), or 15 seconds per move. Maximum is the strongest available build and downloads about 94 MB on first use; Lite downloads about 1.6 MB. Engine computation runs on the player's device, with a single thread and 64 MB hash for Full (16 MB for Lite). These names are difficulty presets, not measured Elo ratings. Device speed and allotted search time affect playing strength. No guarantee of beating every human opponent is implied.
+Thinking time can be 1 (default), 3, 8, or 15 seconds per move. Club / Lite is the default engine. Maximum is the strongest available build and downloads about 94 MB on first use; Lite downloads about 1.6 MB. The loaded engine stays ready between moves and hints. Download progress is shown; the loading watchdog resets while data arrives. Existing saved games from the old defaults migrate to Lite and one-second thinking without losing moves. If Maximum fails, **Retry with faster engine** switches the current game to Club / Lite. Engine computation runs on the player's device, with a single thread and 64 MB hash for Full (16 MB for Lite). These names are difficulty presets, not measured Elo ratings. Device speed and allotted search time affect playing strength. No guarantee of beating every human opponent is implied.
 
 ## Features
 

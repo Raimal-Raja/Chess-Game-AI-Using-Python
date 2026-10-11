@@ -15,10 +15,29 @@ const fs = require("fs");
   const page = await browser.newPage({
     viewport: { width: 1440, height: 1080 },
   });
+  await page.addInitScript(() => {
+    window.engineWorkers = [];
+    const OriginalWorker = window.Worker;
+    window.Worker = new Proxy(OriginalWorker, {
+      construct(target, args) {
+        window.engineWorkers.push(String(args[0]));
+        return Reflect.construct(target, args);
+      }
+    });
+    if (!sessionStorage.getItem('migration-tested')) {
+      localStorage.setItem('chess-studio-game', JSON.stringify({
+        moves: [], config: {mode: 'ai', side: 'white', level: 4, seconds: 8}, flipped: false
+      }));
+      sessionStorage.setItem('migration-tested', 'yes');
+    }
+  });
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(process.env.CHESS_TEST_URL || "http://127.0.0.1:8000");
   await page.waitForSelector('[data-square="e2"]');
+  assert.equal(await page.inputValue('#level'), '2');
+  assert.equal(await page.inputValue('#thinking'), '1');
+  console.log('PASS: old saved defaults migrated to Club / one second.');
   await page.focus('[data-square="e2"]');
   await page.keyboard.press("ArrowRight");
   assert.equal(
@@ -30,6 +49,7 @@ const fs = require("fs");
       .locator('[data-square="a1"]')
       .evaluate((e) => e.classList.contains("dark")),
   );
+  await page.selectOption("#level", "4");
   await page.selectOption("#thinking", "1");
   await page.click("#new");
   await page.waitForFunction(
@@ -49,6 +69,11 @@ const fs = require("fs");
   console.log(
     "PASS: actual full Stockfish WASM loaded and played Black; telemetry displayed.",
   );
+  const loadedWorkers = await page.evaluate(() => engineWorkers.length);
+  await page.click('#analyse');
+  await page.waitForSelector('.hint-from', {timeout: 30000});
+  assert.equal(await page.evaluate(() => engineWorkers.length), loadedWorkers);
+  console.log('PASS: a hint reuses the already-loaded Full engine.');
   await page.click("#undo");
   await page.waitForFunction(
     () => document.querySelector("#move-count").textContent === "0 moves",
@@ -80,6 +105,8 @@ const fs = require("fs");
   console.log(
     "PASS: human Black move followed by actual Stockfish White reply.",
   );
+  assert.equal(await page.evaluate(() => engineWorkers.filter(u => u.includes('lite')).length), 1);
+  console.log('PASS: consecutive moves reuse the Lite engine.');
   const history = await page.locator("#history").textContent();
   await page.reload();
   await page.waitForSelector('[data-square="e2"]');
@@ -204,6 +231,37 @@ const fs = require("fs");
   console.log(
     "PASS: local checkmate, promotion and PGN download in real browser.",
   );
+  // Recover from transient hosting errors without changing the move history.
+  let temporaryFailures = 0;
+  const failState = async (route) => {
+    temporaryFailures++;
+    if (temporaryFailures <= 2) await route.fulfill({status: 503, contentType: 'text/html', body: 'Starting up'});
+    else await route.continue();
+  };
+  await page.route('**/api/state', failState);
+  await page.click('[data-mode="ai"]');
+  await page.click('[data-side="white"]');
+  await page.selectOption('#level', '4');
+  await page.click('#new');
+  await page.waitForFunction(() => document.querySelector('#move-count').textContent === '0 moves' &&
+    document.querySelector('#status').textContent === 'White to move');
+  assert.equal(temporaryFailures, 3);
+  await page.unroute('**/api/state', failState);
+  console.log('PASS: two temporary 503 responses recovered automatically.');
+  const failEngine = route => route.abort();
+  await page.route('**/static/engine/stockfish-19-single.js', failEngine);
+  await page.click('[data-square="e2"]');
+  await page.click('[data-square="e4"]');
+  await page.waitForSelector('#retry:not([hidden])', {timeout: 30000});
+  assert.equal(await page.locator('#retry').textContent(), 'Retry with faster engine');
+  await page.click('#retry');
+  await page.waitForFunction(() => document.querySelector('#status').textContent === 'White to move', {}, {timeout: 120000});
+  assert.equal(await page.inputValue('#level'), '2');
+  assert.equal(await page.inputValue('#thinking'), '1');
+  assert((await page.locator('#history').textContent()).includes('e4'));
+  assert(!(await page.locator('#retry').isVisible()));
+  await page.unroute('**/static/engine/stockfish-19-single.js', failEngine);
+  console.log('PASS: failed Full engine retries with Lite, preserving the human move.');
   // Tactical positions are passed directly to the same production Worker adapter.
   const fens = [
     "6k1/5ppp/8/8/8/8/5PPP/3R2K1 w - - 0 1",
@@ -220,7 +278,8 @@ const fs = require("fs");
         move: await page.evaluate(
           async (args) => {
             const e = new StockfishClient();
-            return await e.search({ ...args, seconds: 1 });
+            try { return await e.search({ ...args, seconds: 1 }); }
+            finally { e.dispose(); }
           },
           { fen, full },
         ),
