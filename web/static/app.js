@@ -563,7 +563,9 @@ function scheduleBoardFit() {
     const bottomControls = footer.bottom - frame.bottom;
     const viewport = window.visualViewport;
     const bottom = viewport ? viewport.height + viewport.offsetTop : innerHeight;
-    const available = Math.max(160, Math.floor(bottom - frame.top - bottomControls - 16));
+    const top = document.querySelector('.workspace').getBoundingClientRect().top;
+    const topPlayer = document.querySelector('.play-area > .player').getBoundingClientRect().height;
+    const available = Math.max(160, Math.floor(bottom - top - topPlayer - bottomControls - 12));
     const nextFit = available + 'px';
     if (area.style.getPropertyValue('--board-fit') !== nextFit)
       area.style.setProperty('--board-fit', nextFit);

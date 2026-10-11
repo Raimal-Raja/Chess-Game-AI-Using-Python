@@ -57,6 +57,15 @@ const path=require('node:path');
    assert(dimensions.bottom<=height+2,`${width}x${height} board fits viewport (${dimensions.bottom})`);
    assert(dimensions.board>120,`${width}x${height} usable board`);
  }
+ await page.setViewportSize({width:1280,height:586});await page.waitForTimeout(200);
+ const beforeCaptures=await page.locator('#board').evaluate(e=>e.getBoundingClientRect().width);
+ await page.evaluate(()=>{for(const row of document.querySelectorAll('.captures'))for(let i=0;i<12;i++){const img=document.createElement('img');img.src='/pieces/white_pawn.png';row.append(img);}});
+ await page.waitForTimeout(300);
+ const afterCaptures=await page.locator('#board').evaluate(e=>e.getBoundingClientRect().width);
+ assert(afterCaptures >= beforeCaptures - 2, 'captured pieces must not shrink the board');
+ assert(afterCaptures >= 330, 'board remains readable in a scaled desktop window');
+ assert((await page.locator('.board-footer').boundingBox()).y + (await page.locator('.board-footer').boundingBox()).height <= 586);
+ console.log(`PASS: scaled desktop with many captures keeps a ${Math.round(afterCaptures)}px board and visible controls.`);
  const profiles=await page.locator('.social-links a').evaluateAll(a=>a.map(x=>x.href));
  assert.deepEqual(profiles,['https://github.com/Raimal-Raja','https://www.linkedin.com/in/raimal-raja-kolhi-860a032bb/','https://www.instagram.com/professor_raimal/']);
  assert((await page.locator('.developer-credit').textContent()).includes('Data Scientist/ML Engineer Raimal Raja Kolhi'));
