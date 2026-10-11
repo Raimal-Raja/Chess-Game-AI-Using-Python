@@ -1,6 +1,7 @@
 """Persistent, server-authoritative rated games. Supabase handles account passwords."""
 from datetime import datetime, timezone
 from functools import lru_cache
+from contextlib import contextmanager
 import base64
 import hashlib
 from urllib.parse import urlencode
@@ -209,13 +210,22 @@ def github_callback(request: Request, code: str = ''):
     return response
 
 
+@contextmanager
+def confirmation_session(url):
+    try:
+        with Session(database(url)) as session, session.begin():
+            yield session
+    except SQLAlchemyError:
+        raise HTTPException(503, 'The account database connection failed. Check DATABASE_URL in Render: use the Supabase Session pooler connection string with the correct database password.') from None
+
+
 def reserve_confirmation(email):
     """Shared across workers/redeploys: five requests per rolling five minutes."""
     url = os.getenv('DATABASE_URL')
     if not url:
         raise HTTPException(503, 'Account email requests need the database configuration.')
     key = hashlib.sha256(email.strip().lower().encode()).hexdigest()
-    with Session(database(url)) as session, session.begin():
+    with confirmation_session(url) as session:
         if session.bind.dialect.name == 'postgresql':
             from sqlalchemy.dialects.postgresql import insert
         else:

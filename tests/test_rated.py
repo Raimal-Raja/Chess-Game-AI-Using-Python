@@ -239,3 +239,12 @@ def test_unconfirmed_login_has_actionable_message(client, monkeypatch):
     monkeypatch.setattr(rated.httpx,'request', lambda *args, **kwargs: httpx.Response(400,json={'code':'email_not_confirmed'}))
     response=post(client,'/auth/login',data={'email':'player@example.com','password':'password123'})
     assert response.status_code == 401 and 'Resend confirmation email' in response.json()['detail']
+
+
+def test_signup_database_failure_returns_clear_json(client, monkeypatch):
+    from sqlalchemy.exc import OperationalError
+    monkeypatch.setattr(rated,'database',lambda url: (_ for _ in ()).throw(OperationalError('select 1',{},Exception('connection failed'))))
+    response=post(client,'/auth/signup',data={'email':'test@example.com','password':'password123'})
+    assert response.status_code == 503 and 'DATABASE_URL' in response.json()['detail']
+    # Restore before fixture teardown.
+    monkeypatch.undo()
