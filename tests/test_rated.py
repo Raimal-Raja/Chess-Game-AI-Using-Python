@@ -248,3 +248,16 @@ def test_signup_database_failure_returns_clear_json(client, monkeypatch):
     assert response.status_code == 503 and 'DATABASE_URL' in response.json()['detail']
     # Restore before fixture teardown.
     monkeypatch.undo()
+
+
+def test_change_wait_returns_updates_and_rejects_nonparticipants(client):
+    code=pair(client)
+    response=get(client,'/matches/'+code+'/wait?ply=0&status=waiting')
+    assert response.status_code==200 and response.json()['status']=='active'
+    assert get(client,'/matches/'+code+'/wait?ply=0&status=waiting','3').status_code==403
+    assert post(client,'/matches/'+code+'/move',data={'move':'e2e4','ply':0}).status_code==200
+    response=get(client,'/matches/'+code+'/wait?ply=0&status=active','2')
+    assert response.json()['state']['moves']==['e2e4']
+    assert post(client,'/matches/'+code+'/resign','2').status_code==200
+    response=get(client,'/matches/'+code+'/wait?ply=1&status=active')
+    assert response.json()['status']=='finished'

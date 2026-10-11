@@ -575,11 +575,23 @@ function applyRatedMatch(match) {
 }
 async function submitRatedMove(move) {
   if (busy) return;
-  const code = online.match?.id;
-  busy = true; busyReason = 'online'; selected = null; $('error').textContent = ''; render();
-  try { await online.move(move, state.moves.length); }
-  catch (error) { if (online.match?.id === code) $('error').textContent = error.message; }
-  finally { if (online.match?.id === code) { busy = false; busyReason = null; render(); } }
+  const code=online.match?.id, before=state, ply=state.moves.length;
+  // Preview only rated moves immediately; the server still validates every move/result.
+  const preview=new BrowserGame();
+  try {preview.restore(before.moves);const played=preview.move(move);state=preview.snapshot();moveSound(played);}
+  catch(error){$('error').textContent=error.message;return;}
+  busy=true;busyReason='online';selected=null;$('error').textContent='';render();
+  try {await online.move(move,ply);}
+  catch(error) {
+    if(online.match?.id===code) {
+      // A timeout can occur after the server committed: recover instead of replaying.
+      state=before;render();
+      try {online.apply(await online.request('/matches/'+code));}
+      catch { $('error').textContent='Connection interrupted. Reconnect to refresh this match.'; }
+      if(state.moves.length===ply)$('error').textContent=error.message;
+    }
+  }
+  finally {if(online.match?.id===code){busy=false;busyReason=null;render();}}
 }
 const online = new RatedClient({onMatch: applyRatedMatch, onClocks: updateRatedDetails});
 newGame(saved);

@@ -21,6 +21,15 @@ const assert=require('node:assert/strict');
  await white.waitForFunction(()=>document.querySelector('#status').textContent==='White to move',{}, {timeout:15000});
  assert(await white.locator('#analyse').isDisabled());assert(await white.locator('#undo').isDisabled());
  assert.equal(await black.locator('#board button').first().getAttribute('data-square'),'h1');
+ // A slow/rejected server response must not delay the displayed move or corrupt the match.
+ await white.route('**/rated/matches/*/move',async r=>{await new Promise(resolve=>setTimeout(resolve,650));await r.fulfill({status:400,contentType:'application/json',body:JSON.stringify({detail:'Test rejected move'})});});
+ const preview=await white.evaluate(()=>{const start=performance.now();document.querySelector('[data-square="e2"]').click();document.querySelector('[data-square="e4"]').click();return {ms:performance.now()-start,piece:document.querySelector('[data-square="e4"]').dataset.piece};});
+ assert.equal(preview.piece,'P');assert(preview.ms<250);
+ await white.waitForFunction(()=>document.querySelector('#error').textContent.includes('Test rejected move'));
+ assert.equal(await white.locator('[data-square="e2"]').getAttribute('data-piece'),'P');
+ assert.equal(await white.locator('[data-square="e4"]').getAttribute('data-piece'),'');
+ await white.unroute('**/rated/matches/*/move');
+ console.log(`PASS: rated move displayed in ${preview.ms.toFixed(1)}ms during a delayed request; rejection restored server position.`);
  for(const [page,from,to,turn] of [[white,'f2','f3','Black to move'],[black,'e7','e5','White to move'],[white,'g2','g4','Black to move'],[black,'d8','h4','Black wins']]){
    await page.click(`[data-square="${from}"]`);
    if(from==='e7'){await page.waitForTimeout(2600);assert(await page.locator('[data-square="e7"]').evaluate(e=>e.classList.contains('selected')));}

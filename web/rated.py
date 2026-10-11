@@ -2,6 +2,8 @@
 from datetime import datetime, timezone
 from functools import lru_cache
 from contextlib import contextmanager
+import asyncio
+import time
 import base64
 import hashlib
 from urllib.parse import urlencode
@@ -13,7 +15,7 @@ from uuid import UUID
 
 import chess
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import JSON, DateTime, Float, Integer, MetaData, String, create_engine, select, text
 from sqlalchemy.engine import make_url
@@ -452,6 +454,36 @@ def join_match(code: str, user=Depends(identity), session=Depends(db_session)):
 @router.get('/matches/{code}')
 def get_match(code: str, user=Depends(identity), session=Depends(db_session)):
     return snapshot(session, require_match(session, code, user), user)
+
+
+def changed_match(code, user, ply, status, force=False):
+    url = os.getenv('DATABASE_URL')
+    if not url: raise HTTPException(503, 'Rated play is not configured yet.')
+    try:
+        with Session(database(url)) as session, session.begin():
+            match = session.get(Match, code)
+            if not match: raise HTTPException(404, 'Match not found.')
+            if user['id'] not in (match.white_id, match.black_id):
+                raise HTTPException(403, 'This match belongs to other players.')
+            expired = match.status == 'active' and match.clock_at and (now()-aware(match.clock_at)).total_seconds() >= (match.white_seconds if len(match.moves)%2==0 else match.black_seconds)
+            if force or expired or len(match.moves)!=ply or match.status!=status:
+                return snapshot(session, require_match(session, code, user), user)
+            return None
+    except SQLAlchemyError:
+        raise HTTPException(503, 'The rated-game database is unavailable. Please retry.') from None
+
+
+@router.get('/matches/{code}/wait')
+async def wait_match(code: str, request: Request, ply: int = Query(ge=0, le=600),
+                     status: str = Query(pattern='^(waiting|active|finished|cancelled)$'), user=Depends(identity)):
+    # Verify once per request, and return as soon as the opponent changes the match.
+    # Never hold a database connection or row lock while waiting.
+    deadline = time.monotonic()+12
+    while True:
+        result = await asyncio.to_thread(changed_match, code, user, ply, status, time.monotonic()>=deadline)
+        if result is not None: return result
+        if await request.is_disconnected(): return Response(status_code=204)
+        await asyncio.sleep(.25)
 
 
 class RatedMove(BaseModel):

@@ -26,13 +26,13 @@ class RatedClient {
     document.getElementById('rated-leaderboard').ontoggle = () => {if(document.getElementById('rated-leaderboard').open)this.leaderboard();};
     document.addEventListener('visibilitychange',()=>{if(!document.hidden&&this.match&&this.match.status!=='finished')this.poll();});
   }
-  async request(path, method='GET', data=null, retry=true) {
+  async request(path, method='GET', data=null, retry=true, abortSignal=null) {
     const controller=new AbortController(), timer=setTimeout(()=>controller.abort(),20000);
     try {
-      const response=await fetch('/rated'+path,{method,credentials:'same-origin',headers:{'Content-Type':'application/json'},signal:controller.signal,...(data?{body:JSON.stringify(data)}:{})});
+      const response=await fetch('/rated'+path,{method,credentials:'same-origin',headers:{'Content-Type':'application/json'},signal:abortSignal?AbortSignal.any([controller.signal,abortSignal]):controller.signal,...(data?{body:JSON.stringify(data)}:{})});
       if(response.status===401&&retry&&!path.startsWith('/auth/')) {
         await this.request('/auth/refresh','POST',null,false);
-        return this.request(path,method,data,false);
+        return this.request(path,method,data,false,abortSignal);
       }
       const body=await response.json().catch(()=>null);
       if(!response.ok){const e=Error(typeof body?.detail==='string'?body.detail:'Rated play is temporarily unavailable.');e.status=response.status;e.retryAfter=Number(response.headers.get('Retry-After'))||0;throw e;}
@@ -120,6 +120,7 @@ class RatedClient {
     if(match)this.apply(match);
   }
   apply(match) {
+    if(this.match&&this.match.id!==match.id)this.waitController?.abort();
     if(this.match?.id===match.id) {
       if(match.state.moves.length<this.match.state.moves.length)return;
       if(['finished','cancelled'].includes(this.match.status)&&!['finished','cancelled'].includes(match.status))return;
@@ -141,7 +142,7 @@ class RatedClient {
     this.onMatch(match);
     clearInterval(this.clockTimer);this.clockTimer=setInterval(()=>this.showClocks(),1000);this.showClocks();
     clearTimeout(this.pollTimer);
-    if(!done)this.pollTimer=setTimeout(()=>this.poll(),2000);
+    if(!done)this.pollTimer=setTimeout(()=>this.poll(),100);
     else {clearInterval(this.clockTimer);this.clockTimer=null;}
   }
   clocks() {
@@ -158,20 +159,29 @@ class RatedClient {
   }
   async poll() {
     clearTimeout(this.pollTimer);
-    const code=this.match?.id;if(!code)return;
-    if(document.hidden||this.pending){this.pollTimer=setTimeout(()=>this.poll(),2000);return;}
-    try{const match=await this.request('/matches/'+code);if(this.match?.id===code)this.apply(match);}
-    catch(error){this.message.textContent=error.message;this.pollTimer=setTimeout(()=>this.poll(),5000);}
+    const code=this.match?.id;if(!code||this.polling)return;
+    if(document.hidden||this.pending){this.pollTimer=setTimeout(()=>this.poll(),500);return;}
+    const controller=new AbortController();this.waitController=controller;this.polling=true;
+    try {
+      const match=await this.request('/matches/'+code+'/wait?ply='+this.match.state.moves.length+'&status='+this.match.status,'GET',null,true,controller.signal);
+      if(!controller.signal.aborted&&!this.pending&&this.match?.id===code)this.apply(match);
+    } catch(error) {
+      if(!controller.signal.aborted){this.message.textContent=error.message;this.pollTimer=setTimeout(()=>this.poll(),5000);}
+    } finally {
+      this.polling=false;
+      if(this.waitController===controller)this.waitController=null;
+      if(controller.signal.aborted&&this.match&&!['finished','cancelled'].includes(this.match.status)){clearTimeout(this.pollTimer);this.pollTimer=setTimeout(()=>this.poll(),100);}
+    }
   }
   async move(move,ply) {
     const code=this.match?.id;if(!code)throw Error('Join a rated match first.');
-    this.pending=true;this.setButtons();
+    this.pending=true;this.waitController?.abort();this.setButtons();
     try {const result=await this.request('/matches/'+code+'/move','POST',{move,ply});if(this.match?.id===code)this.apply(result);}
     finally{this.pending=false;this.setButtons();}
   }
   leaveFinished() {
     if(this.match&&!['finished','cancelled'].includes(this.match.status))return false;
-    this.match=null;clearTimeout(this.pollTimer);clearInterval(this.clockTimer);
+    this.waitController?.abort();this.match=null;clearTimeout(this.pollTimer);clearInterval(this.clockTimer);
     try{localStorage.removeItem('chess-rated-match');}catch{}
     document.getElementById('rated-match').hidden=true;
     return true;
