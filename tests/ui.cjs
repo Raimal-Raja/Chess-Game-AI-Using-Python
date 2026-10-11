@@ -6,6 +6,7 @@ let requests = 0;
 const dom = new JSDOM(fs.readFileSync("web/static/index.html", "utf8"), {
   url: base,
   runScripts: "outside-only",
+  pretendToBeVisual: true,
 });
 const w = dom.window;
 w.AbortController = global.AbortController;

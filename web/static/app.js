@@ -547,3 +547,33 @@ window.addEventListener("pageshow", (event) => {
     runAI();
   }
 });
+
+// Fit the actual board and its nearby controls, rather than guessing a height cap.
+let boardFitFrame;
+function scheduleBoardFit() {
+  cancelAnimationFrame(boardFitFrame);
+  boardFitFrame = requestAnimationFrame(() => {
+    const area = document.querySelector('.play-area');
+    if (innerWidth < 600 && innerHeight >= innerWidth) {
+      area.style.removeProperty('--board-fit');
+      return;
+    }
+    const frame = document.querySelector('.board-frame').getBoundingClientRect();
+    const footer = document.querySelector('.board-footer').getBoundingClientRect();
+    const bottomControls = footer.bottom - frame.bottom;
+    const viewport = window.visualViewport;
+    const bottom = viewport ? viewport.height + viewport.offsetTop : innerHeight;
+    const available = Math.max(160, Math.floor(bottom - frame.top - bottomControls - 16));
+    const nextFit = available + 'px';
+    if (area.style.getPropertyValue('--board-fit') !== nextFit)
+      area.style.setProperty('--board-fit', nextFit);
+  });
+}
+window.addEventListener('resize', scheduleBoardFit);
+window.visualViewport?.addEventListener('resize', scheduleBoardFit);
+if (typeof ResizeObserver !== 'undefined') {
+  const layoutObserver = new ResizeObserver(scheduleBoardFit);
+  for (const element of document.querySelectorAll('header, .intro, .workspace, .player, .board-footer'))
+    layoutObserver.observe(element);
+}
+scheduleBoardFit();

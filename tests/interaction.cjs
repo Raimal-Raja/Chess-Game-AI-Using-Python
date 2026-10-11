@@ -50,10 +50,11 @@ const path=require('node:path');
  const views=[[320,568],[360,640],[390,844],[430,932],[768,1024],[820,1180],[1024,768],[1366,768],[1920,1080],[2560,1440],[568,320],[844,390]];
  for(const [width,height] of views){
    await page.setViewportSize({width,height});
+   await page.waitForTimeout(150);
    const dimensions=await page.evaluate(()=>{const b=document.querySelector('#board').getBoundingClientRect();const sq=document.querySelector('.square').getBoundingClientRect();return {overflow:document.documentElement.scrollWidth>innerWidth,board:b.width,height:b.height,bottom:b.bottom,square:sq.width,squareHeight:sq.height};});
    assert(!dimensions.overflow,`${width}x${height} overflow`);assert(Math.abs(dimensions.board-dimensions.height)<1,`${width}x${height} square board`);
    assert(Math.abs(dimensions.square-dimensions.squareHeight)<1,`${width}x${height} square cells`);
-   if (height <= 550 && width > height) assert(dimensions.bottom<=height+2,`${width}x${height} landscape board fits viewport (${dimensions.bottom})`);
+   assert(dimensions.bottom<=height+2,`${width}x${height} board fits viewport (${dimensions.bottom})`);
    assert(dimensions.board>120,`${width}x${height} usable board`);
  }
  const profiles=await page.locator('.social-links a').evaluateAll(a=>a.map(x=>x.href));
