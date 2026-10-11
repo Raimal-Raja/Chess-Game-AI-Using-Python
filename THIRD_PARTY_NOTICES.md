@@ -23,3 +23,10 @@ Source and license: https://github.com/niklasf/python-chess
 
 Other runtime/test dependencies retain their respective upstream licenses.
 This notice does not grant a new license to pre-existing project assets or code.
+
+## chess.js
+
+The browser bundles chess.js 1.4.0 by Jeff Hlywa under BSD-2-Clause.
+The upstream CommonJS build is enclosed in a browser export wrapper; its rules are unmodified.
+Source: https://github.com/jhlywa/chess.js/tree/v1.4.0
+License: `web/static/vendor/CHESS_LICENSE.txt` (also retained in the bundled script).

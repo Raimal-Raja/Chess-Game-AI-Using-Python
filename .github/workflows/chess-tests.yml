@@ -26,5 +26,7 @@ jobs:
             if curl -fsS http://127.0.0.1:8000/health; then break; fi
             sleep 1
           done
+          CHESS_TEST_URL=http://127.0.0.1:8000 npm run test:rules
           npm run test:ui
           npm run test:browser
+          npm run test:interaction

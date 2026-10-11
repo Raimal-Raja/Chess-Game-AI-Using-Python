@@ -2,9 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <title>Chess Studio — Your next move</title>
-    <link rel="stylesheet" href="/static/style.css" />
+    <link rel="stylesheet" href="/static/style.css?v=3" />
   </head>
   <body>
     <header>
@@ -56,8 +56,8 @@
             ><span class="player-tag accent" id="bottom-tag">YOUR SIDE</span>
           </div>
           <div class="board-footer">
-            <span>Click a piece, then its destination.</span
-            ><button id="flip" class="quiet">↻ Flip board</button>
+            <span id="board-message">Tap or click a piece, then its destination.</span
+            ><div class="board-tools"><button id="board-undo" class="quiet" disabled>↶ Undo</button><button id="flip" class="quiet">↻ Flip board</button></div>
           </div>
           <section class="card engine-card">
             <div class="card-heading">
@@ -122,7 +122,7 @@
             </div>
             <div class="tools">
               <button id="analyse">✦ Find a hint</button
-              ><button id="sound" aria-pressed="false">♪ Sound off</button>
+              ><button id="sound" aria-pressed="true">♪ Sound on</button>
             </div>
             <button id="retry" hidden>Retry engine</button>
             <p class="settings-note">
@@ -166,6 +166,14 @@
           >Engine source</a
         ></span
       >
+      <div class="developer-credit">
+        <p>Developed by <strong>Data Scientist/ML Engineer Raimal Raja Kolhi</strong></p>
+        <nav class="social-links" aria-label="Developer profiles">
+          <a href="https://github.com/Raimal-Raja" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+          <a href="https://www.linkedin.com/in/raimal-raja-kolhi-860a032bb/" target="_blank" rel="noopener noreferrer">LinkedIn ↗</a>
+          <a href="https://www.instagram.com/professor_raimal/" target="_blank" rel="noopener noreferrer">Instagram ↗</a>
+        </nav>
+      </div>
     </footer>
     <dialog id="promotion">
       <h2>Choose your promotion</h2>
@@ -173,7 +181,10 @@
       <div id="promotion-options"></div>
       <button id="cancel-promotion" class="quiet">Cancel</button>
     </dialog>
+    <script src="/static/vendor/chess.js?v=1.4.0"></script>
+    <script src="/static/local-rules.js?v=3"></script>
+    <script src="/static/sound.js?v=3"></script>
     <script src="/static/stockfish-client.js?v=2"></script>
-    <script src="/static/app.js?v=2"></script>
+    <script src="/static/app.js?v=3"></script>
   </body>
 </html>

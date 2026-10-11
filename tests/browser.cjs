@@ -231,23 +231,17 @@ const fs = require("fs");
   console.log(
     "PASS: local checkmate, promotion and PGN download in real browser.",
   );
-  // Recover from transient hosting errors without changing the move history.
-  let temporaryFailures = 0;
-  const failState = async (route) => {
-    temporaryFailures++;
-    if (temporaryFailures <= 2) await route.fulfill({status: 503, contentType: 'text/html', body: 'Starting up'});
-    else await route.continue();
-  };
-  await page.route('**/api/state', failState);
+  // Human moves and controls must not depend on a reachable API.
+  let apiRequests = 0;
+  await page.route('**/api/**', route => { apiRequests++; return route.abort(); });
   await page.click('[data-mode="ai"]');
   await page.click('[data-side="white"]');
   await page.selectOption('#level', '4');
   await page.click('#new');
   await page.waitForFunction(() => document.querySelector('#move-count').textContent === '0 moves' &&
     document.querySelector('#status').textContent === 'White to move');
-  assert.equal(temporaryFailures, 3);
-  await page.unroute('**/api/state', failState);
-  console.log('PASS: two temporary 503 responses recovered automatically.');
+  assert.equal(apiRequests, 0);
+  console.log('PASS: new game and moves are independent of the rules API.');
   const failEngine = route => route.abort();
   await page.route('**/static/engine/stockfish-19-single.js', failEngine);
   await page.click('[data-square="e2"]');

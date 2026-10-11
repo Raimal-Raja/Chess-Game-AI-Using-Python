@@ -32,6 +32,10 @@ w.StockfishClient = class {
     return result.moves.at(-1);
   }
 };
+w.Chess = require('../web/static/vendor/chess.js').Chess;
+const {BrowserGame} = require('../web/static/local-rules.js');
+w.BrowserGame = class extends BrowserGame { constructor() { super(w.Chess); } };
+w.eval(fs.readFileSync('web/static/sound.js','utf8') + '; window.ChessSound = ChessSound;');
 w.eval(fs.readFileSync("web/static/app.js", "utf8"));
 const wait = async (pred) => {
   for (let i = 0; i < 200; i++) {
@@ -99,12 +103,12 @@ const click = (s) => w.document.querySelector(`[data-square="${s}"]`).click();
     ["a6", "b7"],
     ["h3", "g2"],
   ]) {
-    const n = requests;
+    const n = JSON.parse(w.localStorage.getItem("chess-studio-game")).moves.length;
     click(from);
     click(to);
     await wait(
       () =>
-        requests > n && $("status").textContent !== "Working on your position…",
+        JSON.parse(w.localStorage.getItem("chess-studio-game")).moves.length > n,
     );
     await new Promise((r) => setTimeout(r, 30));
   }

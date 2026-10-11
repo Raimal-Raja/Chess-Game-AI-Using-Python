@@ -1,6 +1,6 @@
 # Chess Studio — Python + Stockfish
 
-A browser chess app with a responsive board, a FastAPI rules API, and Stockfish 19 running locally in a Web Worker. The original Pygame desktop game remains available in `src/`.
+A browser chess app with a responsive board, device-local chess.js rules and a separate FastAPI rules API, and Stockfish 19 running locally in a Web Worker. The original Pygame desktop game remains available in `src/`.
 
 ## Quick start
 
@@ -31,13 +31,13 @@ Thinking time can be 1 (default), 3, 8, or 15 seconds per move. Club / Lite is t
 
 - Human White or Black versus Stockfish, plus local pass-and-play for two humans.
 - Responsive board with image pieces, correctly colored squares, coordinates, legal-move targets, last-move and check highlights.
-- Dark/light themes, captured pieces, optional move sounds and keyboard navigation.
+- Dark/light themes, captured pieces, distinct move, capture, check, new-game and end-game sounds with a saved mute preference and keyboard navigation.
 - Search depth, node count, evaluation from White's perspective, and a suggested continuation in coordinate notation.
 - Find a hint without making a move; suggested squares appear in gold.
 - Undo, rotate the board, reset and download the game as PGN.
 - Restore the game and settings from browser storage on reload. Each browser owns its history; no global server game is shared.
-- Castling, en passant, four promotion choices, checkmate, stalemate, insufficient material and draw detection through python-chess.
-- Safe search cancellation on reset/navigation, retry after engine failures, and server validation of every Stockfish move.
+- Castling, en passant, four promotion choices, checkmate, stalemate, insufficient material and draw detection through chess.js in the browser and python-chess in the API.
+- Safe search cancellation on reset/navigation, retry after engine failures, and local validation of every Stockfish move.
 
 Claimable repetition and fifty-move draws are automatically accepted. Saved games are local to that browser/device, not cloud accounts. Two-player mode is local, not online multiplayer. A hint is engine assistance and changes the nature of unaided play.
 
@@ -62,6 +62,7 @@ python -m pip install pytest httpx pygame
 python -m pytest tests -q
 npm install
 npm run test:engine
+npm run test:rules
 ```
 
 With the web server running in another terminal:
@@ -69,6 +70,7 @@ With the web server running in another terminal:
 ```bash
 npm run test:ui
 npm run test:browser
+npm run test:interaction
 ```
 
 Node.js 22 or later is needed for JavaScript tests. Install Playwright Chromium with `npx playwright install chromium` before the real-browser suite. Set `CHESS_TEST_URL` if the server is not at http://127.0.0.1:8000. The browser suite requires engine assets installed above. Optional `CHESS_CHROMIUM_PATH` and `CHESS_CHROMIUM_ARGS` environment variables support a separately installed Chromium.
@@ -88,3 +90,12 @@ The desktop version uses Pygame and its existing bot/Windows-engine integrations
 ## Engine attribution
 
 Stockfish.js 19 by Nathan Rugg / Chess.com and Stockfish contributors is GPLv3. Unmodified engine assets, the GPL text and source metadata are installed together. The GUI links to the license and corresponding upstream source. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## Responsive, immediate play
+
+Human and engine moves are validated locally with the bundled chess.js library. After the page and engine load, gameplay, undo, new games and PGN export do not depend on Render API requests. Board buttons persist between renders so rapid taps and keyboard focus are retained. Undo cancels a search; selecting a piece cancels a hint without blocking play. Phone, tablet, landscape and desktop layouts adapt board size, controls and promotion dialogs, with reduced-motion support.
+
+Developed by Data Scientist/ML Engineer Raimal Raja Kolhi.
+GitHub: https://github.com/Raimal-Raja
+LinkedIn: https://www.linkedin.com/in/raimal-raja-kolhi-860a032bb/
+Instagram: https://www.instagram.com/professor_raimal/

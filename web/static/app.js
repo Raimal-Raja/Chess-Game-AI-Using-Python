@@ -14,6 +14,9 @@ const profiles = {
   4: { name: "Maximum", skill: 20, full: true },
 };
 const engine = new StockfishClient();
+const game = new BrowserGame();
+const sounds = new ChessSound();
+let busyReason = null, journalKey = null;
 let state = null,
   selected = null,
   busy = false,
@@ -21,8 +24,13 @@ let state = null,
   flipped = false,
   pendingPromotion = null,
   hint = null;
-let soundEnabled = false,
-  audio = null;
+document.addEventListener("pointerdown", () => sounds.unlock(), {capture: true});
+document.addEventListener("keydown", () => sounds.unlock(), {capture: true});
+function soundLabel() {
+  $("sound").textContent = sounds.enabled ? "♪ Sound on" : "♪ Sound off";
+  $("sound").setAttribute("aria-pressed", String(sounds.enabled));
+}
+soundLabel();
 let config = { mode: "ai", side: "white", level: 2, seconds: 1 },
   next = { ...config };
 const imagePath = (p) =>
@@ -37,38 +45,6 @@ try {
 $("theme").textContent = document.body.classList.contains("light")
   ? "☾ Dark mode"
   : "☀ Light mode";
-async function api(endpoint, payload) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 75000);
-  try {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      let response;
-      try {
-        response = await fetch("/api/" + endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          signal: controller.signal,
-        });
-      } catch (error) {
-        if (controller.signal.aborted)
-          throw Error("The server took too long to respond. Please retry.");
-        if (attempt === 2) throw Error("Cannot reach the server. Check your connection and retry.");
-      }
-      if (!response || ([502, 503, 504].includes(response.status) && attempt < 2)) {
-        await new Promise((resolve) => setTimeout(resolve, (attempt + 1) * 1000));
-        continue;
-      }
-      const data = await response.json().catch(() => null);
-      if (!response.ok || !data)
-        throw Error(typeof data?.detail === "string" ? data.detail :
-          "The server is temporarily unavailable. Please retry.");
-      return data;
-    }
-  } finally {
-    clearTimeout(timeout);
-  }
-}
 function isHuman() {
   return config.mode === "local" || state.turn === config.side;
 }
@@ -90,7 +66,8 @@ function pieceImage(symbol) {
 function render() {
   if (!state) return;
   const previousFocus = document.activeElement?.dataset.square;
-  $("board").replaceChildren();
+  const board = $("board");
+  board.setAttribute("aria-busy", String(busy));
   const legal = selected
     ? state.legal_moves.filter((m) => m.startsWith(selected))
     : [];
@@ -101,7 +78,8 @@ function render() {
         rank = flipped ? row + 1 : 8 - row,
         square = String.fromCharCode(97 + file) + rank,
         piece = state.pieces[square];
-      const btn = document.createElement("button");
+      const index = row * 8 + col;
+      const btn = board.children[index] || document.createElement("button");
       btn.className = "square" + ((file + rank) % 2 === 1 ? " dark" : "");
       btn.dataset.square = square;
       btn.setAttribute(
@@ -122,22 +100,19 @@ function render() {
       if (state.check && square === state.king) btn.classList.add("check");
       if (hint?.slice(0, 2) === square) btn.classList.add("hint-from");
       if (hint?.slice(2, 4) === square) btn.classList.add("hint-to");
-      if (piece) {
-        const img = pieceImage(piece);
-        img.className = "piece piece-image";
-        btn.append(img);
-      }
-      if (col === 0) {
-        const el = document.createElement("span");
-        el.className = "coord rank";
-        el.textContent = rank;
-        btn.append(el);
-      }
-      if (row === 7) {
-        const el = document.createElement("span");
-        el.className = "coord file";
-        el.textContent = String.fromCharCode(97 + file);
-        btn.append(el);
+      if (btn.dataset.piece !== (piece || "") || btn.dataset.coordinate !== square) {
+        btn.replaceChildren();
+        if (piece) {
+          const img = pieceImage(piece); img.className = "piece piece-image"; btn.append(img);
+        }
+        if (col === 0) {
+          const el = document.createElement("span"); el.className = "coord rank"; el.textContent = rank; btn.append(el);
+        }
+        if (row === 7) {
+          const el = document.createElement("span"); el.className = "coord file";
+          el.textContent = String.fromCharCode(97 + file); btn.append(el);
+        }
+        btn.dataset.piece = piece || ""; btn.dataset.coordinate = square;
       }
       btn.onclick = () => clickSquare(square);
       btn.onkeydown = (event) => {
@@ -154,11 +129,11 @@ function render() {
           $("board").children[r * 8 + c].focus();
         }
       };
-      $("board").append(btn);
+      if (!btn.parentElement) board.append(btn);
     }
   if (previousFocus)
     $("board").querySelector(`[data-square="${previousFocus}"]`)?.focus();
-  $("status").textContent = busy ? "Working on your position…" : state.status;
+  $("status").textContent = busy ? (busyReason === "hint" ? "Finding a hint…" : "Stockfish is thinking…") : state.status;
   $("indicator").textContent = state.game_over
     ? "● FINISHED"
     : busy
@@ -167,14 +142,19 @@ function render() {
   $("hint").textContent = state.game_over
     ? "A game to learn from. Ready for another?"
     : busy
-      ? "Search runs on your device. The board will stay responsive."
+      ? (busyReason === "hint" ? "You can make a move while the hint loads." : "Undo or start a new game to cancel the search.")
       : isHuman()
         ? "Your turn. Select a piece to see its legal moves."
         : "Stockfish is ready for its next move.";
-  $("undo").disabled = busy || !state.moves.length;
+  $("undo").disabled = !state.moves.length;
+  $("board-undo").disabled = !state.moves.length;
+  $("board-message").textContent = busy ? (busyReason === "hint" ? "Finding a hint · tap a piece to keep playing." : "AI is thinking · Undo is available.") : state.game_over ? state.status : isHuman() ? "Your turn · tap a piece, then its destination." : "AI paused · retry below or undo.";
   $("export").disabled = !state.moves.length;
   $("analyse").disabled = busy || state.game_over || !isHuman();
   $("move-count").textContent = Math.ceil(state.history.length / 2) + " moves";
+  const nextJournalKey = state.history.join(" ");
+  if (journalKey !== nextJournalKey) {
+  journalKey = nextJournalKey;
   if (state.history.length) {
     $("history").replaceChildren();
     for (let i = 0; i < state.history.length; i += 2) {
@@ -195,6 +175,7 @@ function render() {
   } else
     $("history").innerHTML =
       '<div class="empty"><span>♘</span><p>Every great game starts<br>with a single move.</p></div>';
+  }
   const top = flipped ? "white" : "black",
     bottom = flipped ? "black" : "white";
   for (const [prefix, side] of [
@@ -272,25 +253,20 @@ function insight(info, turn) {
       )
       .join("  ·  ");
 }
-function beep(capture = false) {
-  if (!soundEnabled) return;
-  try {
-    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
-    audio.resume();
-    const oscillator = audio.createOscillator(),
-      gain = audio.createGain();
-    oscillator.type = "sine";
-    oscillator.frequency.value = capture ? 320 : 520;
-    gain.gain.setValueAtTime(0.06, audio.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.12);
-    oscillator.connect(gain);
-    gain.connect(audio.destination);
-    oscillator.start();
-    oscillator.stop(audio.currentTime + 0.13);
-  } catch {}
+function moveSound(move) {
+  const kind = state.game_over ? "end" : state.check ? "check" : move.captured ? "capture" : "move";
+  sounds.play(kind);
+}
+function interruptHint() {
+  if (busy && busyReason === "hint") {
+    ++epoch; engine.cancel(); busy = false; busyReason = null;
+    $("error").textContent = "";
+  }
 }
 function clickSquare(square) {
-  if (busy || state.game_over || !isHuman() || pendingPromotion) return;
+  if (!state || state.game_over || !isHuman() || pendingPromotion) return;
+  interruptHint();
+  if (busy) return;
   const candidates = selected
     ? state.legal_moves.filter((m) => m.startsWith(selected + square))
     : [];
@@ -326,29 +302,17 @@ function clickSquare(square) {
       : null;
   render();
 }
-async function play(move) {
-  const token = epoch;
-  busy = true;
-  selected = null;
-  hint = null;
-  $("error").textContent = "";
-  $("retry").hidden = true;
-  render();
+function play(move) {
+  if (busy || !state || !state.legal_moves.includes(move)) return;
+  selected = null; hint = null;
+  $("error").textContent = ""; $("retry").hidden = true;
   try {
-    const result = await api("move", { moves: state.moves, move });
-    if (token !== epoch) return;
-    beep(result.history.at(-1).includes("x"));
-    state = result;
-    busy = false;
-    save();
-    render();
-    await runAI();
+    const played = game.move(move);
+    state = game.snapshot();
+    save(); render(); moveSound(played);
+    runAI();
   } catch (error) {
-    if (token === epoch) {
-      busy = false;
-      $("error").textContent = error.message;
-      render();
-    }
+    $("error").textContent = error.message; render();
   }
 }
 async function searchPosition(token) {
@@ -373,7 +337,7 @@ async function searchPosition(token) {
 async function runAI() {
   if (config.mode !== "ai" || state.game_over || isHuman()) return;
   const token = epoch;
-  busy = true;
+  busy = true; busyReason = "ai";
   render();
   try {
     const move = await searchPosition(token);
@@ -382,10 +346,9 @@ async function runAI() {
       throw Error(
         "Stockfish returned an illegal move. The board was preserved.",
       );
-    const result = await api("move", { moves: state.moves, move });
-    if (token !== epoch) return;
-    beep(result.history.at(-1).includes("x"));
-    state = result;
+    const played = game.move(move);
+    state = game.snapshot();
+    moveSound(played);
     save();
     $("engine-status").textContent =
       "Search complete · " + config.seconds + " seconds per move";
@@ -397,7 +360,7 @@ async function runAI() {
     }
   } finally {
     if (token === epoch) {
-      busy = false;
+      busy = false; busyReason = null;
       render();
     }
   }
@@ -405,7 +368,7 @@ async function runAI() {
 $("analyse").onclick = async () => {
   if (busy || state.game_over || !isHuman()) return;
   const token = epoch;
-  busy = true;
+  busy = true; busyReason = "hint";
   selected = null;
   $("error").textContent = "";
   render();
@@ -420,7 +383,7 @@ $("analyse").onclick = async () => {
     if (token === epoch) $("error").textContent = error.message;
   } finally {
     if (token === epoch) {
-      busy = false;
+      busy = false; busyReason = null;
       render();
     }
   }
@@ -454,16 +417,16 @@ async function newGame(saved = null) {
   syncSettings();
   render();
   try {
-    const result = await api("state", { moves: saved ? saved.moves : [] });
-    if (token !== epoch) return;
-    state = result;
-    busy = false;
+    state = game.restore(saved ? saved.moves : []);
+    busy = false; busyReason = null;
     save();
     render();
-    await runAI();
+    if (!saved) sounds.play("start");
+    runAI();
   } catch (error) {
     if (token === epoch) {
       busy = false;
+      render();
       $("error").textContent = error.message + " Click New game to retry.";
     }
   }
@@ -481,7 +444,7 @@ $("retry").onclick = () => {
   runAI();
 };
 $("undo").onclick = async () => {
-  if (busy || !state.moves.length) return;
+  if (!state || !state.moves.length) return;
   const token = ++epoch;
   engine.cancel();
   busy = true;
@@ -490,16 +453,12 @@ $("undo").onclick = async () => {
   let count = 1;
   if (config.mode === "ai" && state.turn === config.side) count = 2;
   try {
-    const result = await api("state", {
-      moves: state.moves.slice(0, Math.max(0, state.moves.length - count)),
-    });
-    if (token !== epoch) return;
-    state = result;
-    busy = false;
+    state = game.restore(state.moves.slice(0, Math.max(0, state.moves.length - count)));
+    busy = false; busyReason = null;
     clearInsight();
     save();
     render();
-    await runAI();
+    runAI();
   } catch (error) {
     if (token === epoch) {
       busy = false;
@@ -508,6 +467,7 @@ $("undo").onclick = async () => {
     }
   }
 };
+$("board-undo").onclick = () => $("undo").click();
 $("flip").onclick = () => {
   flipped = !flipped;
   save();
@@ -524,10 +484,7 @@ $("export").onclick = () => {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 $("sound").onclick = () => {
-  soundEnabled = !soundEnabled;
-  $("sound").textContent = soundEnabled ? "♪ Sound on" : "♪ Sound off";
-  $("sound").setAttribute("aria-pressed", String(soundEnabled));
-  beep();
+  sounds.toggle(); soundLabel(); sounds.play("move");
 };
 for (const btn of document.querySelectorAll("[data-mode]"))
   btn.onclick = () => {
