@@ -800,3 +800,42 @@ footer { flex-wrap: wrap; gap: 16px; align-items: center; padding: 24px max(16px
   .player { grid-template-columns: 28px minmax(70px, 1fr) minmax(0, 80px); height: 36px; }
   .player .avatar { width: 28px; height: 28px; }
 }
+
+/* Reclaim vertical space for the board on landscape phones. */
+@media (max-height: 550px) and (orientation: landscape) {
+  header { min-height: 40px; padding-block: 0; }
+  header .quiet { min-height: 36px; }
+  main { margin-top: 6px; }
+  .player { height: 28px; padding: 0; }
+  .player .avatar { width: 24px; height: 24px; }
+  .board-footer { height: 36px; margin-top: 0; flex-wrap: nowrap; }
+  .board-tools button { min-height: 36px; padding: 6px; }
+  #board-message { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
+
+.rated-card { margin-top: 18px; }
+.rated-card input { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--border); border-radius: 7px; padding: 10px; background: var(--bg); color: var(--text); font: inherit; }
+.rated-card input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.join-row { display: flex; gap: 8px; }
+.join-row input { flex: 1; }
+#account-rating { font-size: 11px; color: var(--accent); }
+#rated-copy, #rated-resign { width: 100%; margin-top: 10px; }
+#rated-resign { color: #efa59b; }
+.rated-clocks { display: flex; gap: 16px; justify-content: space-between; }
+.rated-clocks b { display: block; font-size: 24px; font-variant-numeric: tabular-nums; margin-top: 6px; }
+#rated-leaders { padding-left: 22px; line-height: 1.8; }
+#rated-match-label, #rated-result { overflow-wrap: anywhere; }
+#rated-leaderboard summary { cursor: pointer; min-height: 44px; padding-top: 12px; }
+@media (max-width: 899px) { .rated-card { margin-top: 0; } }
+
+/* A little more board room in short laptop/desktop landscape windows. */
+@media (min-width: 900px) and (max-height: 700px) {
+  header { min-height: 40px; padding-block: 0; }
+  header .quiet { min-height: 36px; }
+  .player { height: 36px; padding: 0; }
+  .player .avatar { width: 28px; height: 28px; }
+  .board-footer { height: 36px; margin-top: 0; }
+  .board-tools button { min-height: 36px; padding: 6px; }
+}
+#account-github { display: block; padding: 12px; margin-block: 12px; border: 1px solid var(--border); border-radius: 8px; text-align: center; color: var(--text); }
+#account-github[hidden] { display: none; }

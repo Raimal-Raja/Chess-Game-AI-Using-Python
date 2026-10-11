@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <title>Chess Studio — Your next move</title>
-    <link rel="stylesheet" href="/static/style.css?v=6" />
+    <link rel="stylesheet" href="/static/style.css?v=7" />
   </head>
   <body>
     <header>
@@ -129,6 +129,38 @@
               Side, difficulty, and mode apply to your next game.
             </p>
           </section>
+          <section class="card rated-card" aria-label="Rated online chess">
+            <div class="card-heading"><span class="eyebrow">RATED ONLINE</span><span id="account-rating">Chess Studio Elo</span></div>
+            <p id="account-status" aria-live="polite">Checking rated play availability…</p>
+            <a id="account-github" class="button" href="/rated/auth/github" hidden>Sign in with GitHub</a>
+            <form id="account-form" hidden>
+              <label for="account-name">Player name (for a new account)</label>
+              <input id="account-name" autocomplete="nickname" maxlength="40" placeholder="Your player name" />
+              <label for="account-email">Email</label>
+              <input id="account-email" type="email" autocomplete="email" required maxlength="254" />
+              <label for="account-password">Password</label>
+              <input id="account-password" type="password" autocomplete="current-password" required minlength="8" maxlength="128" />
+              <div class="tools"><button type="submit">Sign in</button><button id="account-signup" type="button">Create account</button></div>
+            </form>
+            <div id="rated-lobby" hidden>
+              <p id="account-record"></p>
+              <button id="rated-create" class="primary">Create rated match <span>↗</span></button>
+              <form id="rated-join-form">
+                <label for="rated-code">Invitation code</label>
+                <div class="join-row"><input id="rated-code" minlength="12" maxlength="12" pattern="[a-fA-F0-9]{12}" placeholder="12-character code" required /><button type="submit">Join</button></div>
+              </form>
+              <button id="account-logout" class="quiet">Sign out</button>
+            </div>
+            <div id="rated-match" hidden>
+              <p id="rated-match-label"></p>
+              <div class="rated-clocks"><span>White <b id="rated-white-clock">10:00</b></span><span>Black <b id="rated-black-clock">10:00</b></span></div>
+              <button id="rated-copy" hidden>Copy invitation link</button>
+              <button id="rated-resign">Resign rated match</button>
+              <p id="rated-result" aria-live="polite"></p>
+            </div>
+            <p class="settings-note">Elo starts at 1200. Completed games against other accounts update it; AI and local games do not. Ratings belong to Chess Studio.</p>
+            <details id="rated-leaderboard" hidden><summary>Player leaderboard</summary><ol id="rated-leaders"></ol></details>
+          </section>
           <section class="card history-card">
             <div class="card-heading">
               <span class="eyebrow">MOVE JOURNAL</span
@@ -185,6 +217,7 @@
     <script src="/static/local-rules.js?v=3"></script>
     <script src="/static/sound.js?v=3"></script>
     <script src="/static/stockfish-client.js?v=2"></script>
-    <script src="/static/app.js?v=6"></script>
+    <script src="/static/online.js?v=7"></script>
+    <script src="/static/app.js?v=7"></script>
   </body>
 </html>

@@ -7,3 +7,7 @@ __pycache__/
 node_modules/
 
 web/static/engine/
+
+.env
+.env.*
+!.env.example

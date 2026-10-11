@@ -99,3 +99,7 @@ Developed by Data Scientist/ML Engineer Raimal Raja Kolhi.
 GitHub: https://github.com/Raimal-Raja
 LinkedIn: https://www.linkedin.com/in/raimal-raja-kolhi-860a032bb/
 Instagram: https://www.instagram.com/professor_raimal/
+
+## Online accounts and Elo
+
+Optional persistent rated matches, invitation links, 10-minute clocks and a leaderboard are available with Supabase. See [rated setup](docs/RATED_SETUP.md) for the free project, Render variables and public sign-in configuration. AI and local play remain available without this setup.

@@ -46,9 +46,10 @@ $("theme").textContent = document.body.classList.contains("light")
   ? "☾ Dark mode"
   : "☀ Light mode";
 function isHuman() {
-  return config.mode === "local" || state.turn === config.side;
+  return config.mode === "local" || (state.turn === config.side && (config.mode !== "rated" || online.match?.status === "active"));
 }
 function save() {
+  if (config.mode === "rated") return;
   try {
     localStorage.setItem(
       "chess-studio-game",
@@ -133,7 +134,7 @@ function render() {
     }
   if (previousFocus)
     $("board").querySelector(`[data-square="${previousFocus}"]`)?.focus();
-  $("status").textContent = busy ? (busyReason === "hint" ? "Finding a hint…" : "Stockfish is thinking…") : state.status;
+  $("status").textContent = busy ? (busyReason === "hint" ? "Finding a hint…" : busyReason === "online" ? "Sending your move…" : "Stockfish is thinking…") : state.status;
   $("indicator").textContent = state.game_over
     ? "● FINISHED"
     : busy
@@ -142,15 +143,16 @@ function render() {
   $("hint").textContent = state.game_over
     ? "A game to learn from. Ready for another?"
     : busy
-      ? (busyReason === "hint" ? "You can make a move while the hint loads." : "Undo or start a new game to cancel the search.")
+      ? (busyReason === "hint" ? "You can make a move while the hint loads." : config.mode === "rated" ? "Your move is being verified." : "Undo or start a new game to cancel the search.")
       : isHuman()
         ? "Your turn. Select a piece to see its legal moves."
         : "Stockfish is ready for its next move.";
-  $("undo").disabled = !state.moves.length;
-  $("board-undo").disabled = !state.moves.length;
-  $("board-message").textContent = busy ? (busyReason === "hint" ? "Finding a hint · tap a piece to keep playing." : "AI is thinking · Undo is available.") : state.game_over ? state.status : isHuman() ? "Your turn · tap a piece, then its destination." : "AI paused · retry below or undo.";
+  $("new").disabled = config.mode === "rated" && !state.game_over;
+  $("undo").disabled = config.mode === "rated" || !state.moves.length;
+  $("board-undo").disabled = config.mode === "rated" || !state.moves.length;
+  $("board-message").textContent = busy ? (busyReason === "hint" ? "Finding a hint · tap a piece to keep playing." : (config.mode === "rated" ? "Sending your move…" : "AI is thinking · Undo is available.")) : state.game_over ? state.status : isHuman() ? "Your turn · tap a piece, then its destination." : (config.mode === "rated" ? "Waiting for your opponent." : "AI paused · retry below or undo.");
   $("export").disabled = !state.moves.length;
-  $("analyse").disabled = busy || state.game_over || !isHuman();
+  $("analyse").disabled = config.mode === "rated" || busy || state.game_over || !isHuman();
   $("move-count").textContent = Math.ceil(state.history.length / 2) + " moves";
   const nextJournalKey = state.history.join(" ");
   if (journalKey !== nextJournalKey) {
@@ -212,6 +214,7 @@ function render() {
       ...(state.captures?.[side] || []).map(pieceImage),
     );
   }
+  updateRatedDetails();
 }
 function clearInsight() {
   hint = null;
@@ -304,6 +307,7 @@ function clickSquare(square) {
 }
 function play(move) {
   if (busy || !state || !state.legal_moves.includes(move)) return;
+  if (config.mode === "rated") { submitRatedMove(move); return; }
   selected = null; hint = null;
   $("error").textContent = ""; $("retry").hidden = true;
   try {
@@ -366,7 +370,7 @@ async function runAI() {
   }
 }
 $("analyse").onclick = async () => {
-  if (busy || state.game_over || !isHuman()) return;
+  if (config.mode === "rated" || busy || state.game_over || !isHuman()) return;
   const token = epoch;
   busy = true; busyReason = "hint";
   selected = null;
@@ -400,6 +404,13 @@ function syncSettings() {
   $("ai-settings").hidden = next.mode !== "ai";
 }
 async function newGame(saved = null) {
+  if (config.mode === "rated" && state && !state.game_over) {
+    $("error").textContent = "Finish, resign or cancel your rated match first."; return;
+  }
+  if (config.mode === "rated") {
+    online.leaveFinished(); viewedMatchId = null;
+    if (next.mode === "rated") next.mode = "ai";
+  }
   const token = ++epoch;
   engine.cancel();
   busy = true;
@@ -444,7 +455,7 @@ $("retry").onclick = () => {
   runAI();
 };
 $("undo").onclick = async () => {
-  if (!state || !state.moves.length) return;
+  if (config.mode === "rated" || !state || !state.moves.length) return;
   const token = ++epoch;
   engine.cancel();
   busy = true;
@@ -534,7 +545,45 @@ try {
       seconds: saved.config.seconds === 8 ? 1 : saved.config.seconds };
   }
 } catch {}
+let viewedMatchId = null;
+function formatClock(seconds) {
+  const total = Math.ceil(Math.max(0, seconds));
+  return Math.floor(total / 60) + ':' + String(total % 60).padStart(2, '0');
+}
+function updateRatedDetails() {
+  if (config.mode !== 'rated' || !online.match) return;
+  const clocks = online.clocks();
+  for (const [prefix, side] of [['opponent', flipped ? 'white' : 'black'], ['you', flipped ? 'black' : 'white']]) {
+    const p = online.match[side];
+    $(prefix + '-name').textContent = p?.name || 'Waiting player';
+    $(prefix + '-detail').textContent = side[0].toUpperCase() + side.slice(1) + ' · ' +
+      (p ? p.rating + ' Elo · ' : '') + formatClock(clocks[side]);
+  }
+}
+function applyRatedMatch(match) {
+  const unchanged = viewedMatchId === match.id && config.mode === 'rated' && state?.status === match.state.status &&
+    state.moves.join(' ') === match.state.moves.join(' ');
+  const oldMoves = viewedMatchId === match.id ? state?.moves.length || 0 : match.state.moves.length;
+  if (unchanged) { state = match.state; updateRatedDetails(); return; }
+  ++epoch; engine.cancel(); busy = false; busyReason = null;
+  selected = null; hint = null; pendingPromotion = null; $('promotion').close();
+  viewedMatchId = match.id;
+  config = {...config, mode: 'rated', side: match.side}; next = {...config};
+  flipped = match.side === 'black'; state = match.state;
+  $('retry').hidden = true; $('error').textContent = ''; clearInsight(); syncSettings(); render();
+  if (state.moves.length > oldMoves) moveSound({captured: state.history.at(-1)?.includes('x')});
+}
+async function submitRatedMove(move) {
+  if (busy) return;
+  const code = online.match?.id;
+  busy = true; busyReason = 'online'; selected = null; $('error').textContent = ''; render();
+  try { await online.move(move, state.moves.length); }
+  catch (error) { if (online.match?.id === code) $('error').textContent = error.message; }
+  finally { if (online.match?.id === code) { busy = false; busyReason = null; render(); } }
+}
+const online = new RatedClient({onMatch: applyRatedMatch, onClocks: updateRatedDetails});
 newGame(saved);
+online.init();
 window.addEventListener("pagehide", () => {
   ++epoch;
   engine.cancel();

@@ -9,7 +9,10 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from web.rated import router as rated_router
+
 app = FastAPI(title="Chess Studio")
+app.include_router(rated_router)
 ROOT = Path(__file__).parent
 app.mount('/static', StaticFiles(directory=ROOT / 'static'), name='static')
 app.mount('/pieces', StaticFiles(directory=ROOT.parent / 'assets/images/imgs-128px'), name='pieces')

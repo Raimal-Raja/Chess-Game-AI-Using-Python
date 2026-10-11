@@ -6,6 +6,7 @@
     "test:engine": "node tests/engine-client.cjs",
     "test:browser": "node tests/browser.cjs",
     "test:rules": "node tests/local-rules.cjs",
+    "test:rated": "node tests/rated-browser.cjs",
     "test:interaction": "node tests/interaction.cjs"
   },
   "devDependencies": {

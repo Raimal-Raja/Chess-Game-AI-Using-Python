@@ -33,6 +33,7 @@ w.StockfishClient = class {
     return result.moves.at(-1);
   }
 };
+w.RatedClient = class { constructor() { this.match = null; } init() {} };
 w.Chess = require('../web/static/vendor/chess.js').Chess;
 const {BrowserGame} = require('../web/static/local-rules.js');
 w.BrowserGame = class extends BrowserGame { constructor() { super(w.Chess); } };
