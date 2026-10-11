@@ -45,7 +45,7 @@ class RatedClient {
 
     try {
       const config=await this.request('/config');this.githubEnabled=config.github_enabled;
-      if(!config.enabled){this.message.textContent='Online rated play is not available yet. AI and two-player games are ready.';return;}
+      if(!config.enabled){this.message.textContent='Online rated play needs Render settings: '+(config.missing_settings||[]).join(', ')+'.';return;}
       try {
         this.profile=await this.request('/me');
         await this.resume();

@@ -164,7 +164,7 @@ class Credentials(BaseModel):
 
 @router.get('/config')
 def config():
-    return {'enabled': configured(), 'github_enabled': os.getenv('SUPABASE_GITHUB_AUTH') == 'true', 'rating_name': 'Chess Studio Elo', 'initial_rating': 1200,
+    return {'enabled': configured(), 'missing_settings': [key for key in ('SUPABASE_URL', 'SUPABASE_PUBLISHABLE_KEY', 'DATABASE_URL', 'SITE_URL') if not os.getenv(key)], 'github_enabled': os.getenv('SUPABASE_GITHUB_AUTH') == 'true', 'rating_name': 'Chess Studio Elo', 'initial_rating': 1200,
             'k_factor': 32, 'clock_seconds': 600}
 
 

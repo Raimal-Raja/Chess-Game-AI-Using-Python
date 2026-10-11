@@ -611,8 +611,9 @@ function scheduleBoardFit() {
     const footer = document.querySelector('.board-footer').getBoundingClientRect();
     const bottomControls = footer.bottom - frame.bottom;
     const viewport = window.visualViewport;
-    const bottom = viewport ? viewport.height + viewport.offsetTop : innerHeight;
-    const top = document.querySelector('.workspace').getBoundingClientRect().top;
+    const bottom = viewport ? viewport.height : innerHeight;
+    // Document coordinates prevent history auto-scroll/scroll anchoring from changing board size.
+    const top = document.querySelector('.workspace').getBoundingClientRect().top + window.scrollY;
     const topPlayer = document.querySelector('.play-area > .player').getBoundingClientRect().height;
     const available = Math.max(160, Math.floor(bottom - top - topPlayer - bottomControls - 12));
     const nextFit = available + 'px';
@@ -624,7 +625,7 @@ window.addEventListener('resize', scheduleBoardFit);
 window.visualViewport?.addEventListener('resize', scheduleBoardFit);
 if (typeof ResizeObserver !== 'undefined') {
   const layoutObserver = new ResizeObserver(scheduleBoardFit);
-  for (const element of document.querySelectorAll('header, .intro, .workspace, .player, .board-footer'))
+  for (const element of document.querySelectorAll('header, .intro'))
     layoutObserver.observe(element);
 }
 scheduleBoardFit();

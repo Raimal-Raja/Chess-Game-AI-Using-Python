@@ -189,3 +189,14 @@ def test_github_pkce_session_bound_callback(client, monkeypatch):
 
 def test_github_disabled_by_default(client):
     assert client.get('/rated/auth/github', follow_redirects=False).status_code == 503
+
+
+def test_config_reports_missing_names_without_secrets(client, monkeypatch):
+    monkeypatch.setenv('SUPABASE_URL', 'https://project.supabase.co')
+    monkeypatch.setenv('SUPABASE_PUBLISHABLE_KEY', 'private-test-value')
+    monkeypatch.setenv('SITE_URL', 'https://chess.example')
+    monkeypatch.delenv('DATABASE_URL', raising=False)
+    response = client.get('/rated/config')
+    assert response.json()['missing_settings'] == ['DATABASE_URL']
+    assert not response.json()['enabled']
+    assert 'private-test-value' not in response.text

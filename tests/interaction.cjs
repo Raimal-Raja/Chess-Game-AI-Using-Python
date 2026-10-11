@@ -66,6 +66,13 @@ const path=require('node:path');
  assert(afterCaptures >= 330, 'board remains readable in a scaled desktop window');
  assert((await page.locator('.board-footer').boundingBox()).y + (await page.locator('.board-footer').boundingBox()).height <= 586);
  console.log(`PASS: scaled desktop with many captures keeps a ${Math.round(afterCaptures)}px board and visible controls.`);
+ // Growing the journal and scrolling the page must not feed back into board sizing.
+ const stableBoard=await page.locator('#board').evaluate(e=>e.getBoundingClientRect().width);
+ await page.evaluate(()=>{const h=document.querySelector('#history');for(let i=0;i<100;i++){const row=document.createElement('div');row.className='history-row';row.textContent=(i+1)+' e4 e5';h.append(row);}h.scrollTop=h.scrollHeight;window.scrollTo(0,250);window.dispatchEvent(new Event('resize'));});
+ await page.waitForTimeout(350);
+ assert(Math.abs(await page.locator('#board').evaluate(e=>e.getBoundingClientRect().width)-stableBoard)<2,'journal growth and page scroll preserve board size');
+ await page.evaluate(()=>window.scrollTo(0,0));
+ console.log('PASS: 100 journal rows and page scrolling preserve board size.');
  const profiles=await page.locator('.social-links a').evaluateAll(a=>a.map(x=>x.href));
  assert.deepEqual(profiles,['https://github.com/Raimal-Raja','https://www.linkedin.com/in/raimal-raja-kolhi-860a032bb/','https://www.instagram.com/professor_raimal/']);
  assert((await page.locator('.developer-credit').textContent()).includes('Data Scientist/ML Engineer Raimal Raja Kolhi'));
